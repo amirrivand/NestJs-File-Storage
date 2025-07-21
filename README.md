@@ -32,6 +32,42 @@ yarn add @amirrivand/nestjs-file-storage
 
 ---
 
+## ☁️ Cloud Storage Preparation
+
+<details>
+<summary><strong>Google Drive Preparation</strong></summary>
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2. Create a new project (or select an existing one).
+3. Navigate to <strong>APIs & Services &rarr; Library</strong> and enable the <strong>Google Drive API</strong>.
+4. Go to <strong>APIs & Services &rarr; Credentials</strong>.
+5. Click <strong>Create Credentials</strong> &rarr; <strong>OAuth client ID</strong> or <strong>Service account</strong> (recommended for server-side):
+   - For <strong>Service account</strong>:
+     - Create a new service account and download the JSON key file.
+     - Share the target Google Drive folder with the service account email.
+   - For <strong>OAuth client ID</strong>:
+     - Set up consent screen and download the client ID/secret.
+6. Store the credentials securely and provide them in your disk config (see below).
+7. (Optional) Set folder permissions as needed for your use case.
+
+</details>
+
+<details>
+<summary><strong>Dropbox Preparation</strong></summary>
+
+1. Go to the [Dropbox App Console](https://www.dropbox.com/developers/apps).
+2. Click <strong>Create App</strong>.
+3. Choose <strong>Scoped access</strong> and select <strong>Full dropbox</strong> or <strong>App folder</strong> access as needed.
+4. Name your app and create it.
+5. Under <strong>Permissions</strong>, enable the required scopes (e.g., files.content.write, files.content.read).
+6. Go to <strong>Settings</strong> and generate an <strong>Access Token</strong> (for development) or set up OAuth 2.0 for production.
+7. Copy the <strong>App key</strong>, <strong>App secret</strong>, and <strong>Access token</strong> as needed for your disk config.
+8. (Optional) Set up webhook or additional permissions as required.
+
+</details>
+
+---
+
 ## 📚 Table of Contents
 
 - [Quick Start](#-quick-start)
