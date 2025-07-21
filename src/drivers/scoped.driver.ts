@@ -1,11 +1,11 @@
-import { FileMetadata, StorageDiskConfig, StorageDriver } from '../lib/file-storage.interface';
+import { FileMetadata, StorageDriver, ScopedDiskConfig } from '../lib/file-storage.interface';
 
 export class ScopedStorageDriver implements StorageDriver {
   private driver: StorageDriver;
   private prefix: string;
 
   constructor(
-    private config: StorageDiskConfig,
+    private config: ScopedDiskConfig,
     driver: StorageDriver,
   ) {
     this.driver = driver;

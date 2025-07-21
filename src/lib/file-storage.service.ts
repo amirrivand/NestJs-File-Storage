@@ -7,14 +7,16 @@ import { S3StorageDriver } from '../drivers/s3.driver';
 import { SFTPStorageDriver } from '../drivers/sftp.driver';
 import { StorageConfig } from '../types/storage-config.type';
 import { StorageDisk, StorageDriver } from './file-storage.interface';
+import { ScopedStorageDriver } from '../drivers/scoped.driver';
 
-const DRIVER_MAP: Record<string, any> = {
+const DRIVER_MAP = {
   local: LocalStorageDriver,
   s3: S3StorageDriver,
   ftp: FTPStorageDriver,
   sftp: SFTPStorageDriver,
   dropbox: DropboxStorageDriver,
   gdrive: GoogleDriveStorageDriver,
+  scoped: ScopedStorageDriver,
 };
 
 @Injectable()
@@ -26,11 +28,39 @@ export class FileStorageService {
     if (config) {
       this.defaultDisk = config.default;
       for (const [name, diskConfig] of Object.entries(config.disks)) {
-        const DriverClass = DRIVER_MAP[diskConfig.driver];
-        if (!DriverClass) throw new Error(`Unknown driver: ${diskConfig.driver}`);
+        let driverInstance: StorageDriver;
+        switch (diskConfig.driver) {
+          case 'local':
+            driverInstance = new LocalStorageDriver(diskConfig);
+            break;
+          case 's3':
+            driverInstance = new S3StorageDriver(diskConfig);
+            break;
+          case 'ftp':
+            driverInstance = new FTPStorageDriver(diskConfig);
+            break;
+          case 'sftp':
+            driverInstance = new SFTPStorageDriver(diskConfig);
+            break;
+          case 'dropbox':
+            driverInstance = new DropboxStorageDriver(diskConfig);
+            break;
+          case 'gdrive':
+            driverInstance = new GoogleDriveStorageDriver(diskConfig);
+            break;
+          case 'scoped':
+            // برای scoped باید یک driver دیگر هم پاس داده شود، اینجا فرض می‌کنیم local به عنوان پیش‌فرض
+            driverInstance = new ScopedStorageDriver(
+              diskConfig,
+              new LocalStorageDriver({ driver: 'local', root: '' }),
+            );
+            break;
+          default:
+            throw new Error(`Unknown driver: ${(diskConfig as { driver: string }).driver}`);
+        }
         this.disks.set(name, {
           name,
-          driver: new DriverClass(diskConfig),
+          driver: driverInstance,
           config: diskConfig,
         });
       }

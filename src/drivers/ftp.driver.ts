@@ -3,16 +3,12 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { PassThrough, Readable } from 'stream';
-import {
-  FileMetadata,
-  StorageDiskConfig,
-  StorageDriver,
-} from '../lib/file-storage.interface';
+import { FTPDiskConfig, StorageDriver, FileMetadata } from '../lib/file-storage.interface';
 
 export class FTPStorageDriver implements StorageDriver {
   private basePublicUrl: string;
 
-  constructor(private config: StorageDiskConfig) {
+  constructor(private config: FTPDiskConfig) {
     this.basePublicUrl = config.basePublicUrl || '';
   }
 

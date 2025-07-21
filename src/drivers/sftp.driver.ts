@@ -1,5 +1,5 @@
 import SftpClient from 'ssh2-sftp-client';
-import { StorageDriver, FileMetadata, StorageDiskConfig } from '../lib/file-storage.interface';
+import { SFTPDiskConfig, StorageDriver, FileMetadata } from '../lib/file-storage.interface';
 import { Readable, PassThrough } from 'stream';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -8,7 +8,7 @@ import * as os from 'os';
 export class SFTPStorageDriver implements StorageDriver {
   private basePublicUrl: string;
 
-  constructor(private config: StorageDiskConfig) {
+  constructor(private config: SFTPDiskConfig) {
     this.basePublicUrl = config.basePublicUrl || '';
   }
 

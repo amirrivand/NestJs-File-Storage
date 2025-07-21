@@ -1,19 +1,20 @@
 import {
+  BadRequestException,
   CallHandler,
   ExecutionContext,
   Injectable,
   NestInterceptor,
-  BadRequestException,
 } from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { FileStorageService } from '../lib/file-storage.service';
 import multer from 'multer';
+import { Observable } from 'rxjs';
+import { FileValidationRule } from '../decorators/upload-file.decorator';
+import { FileStorageService } from '../lib/file-storage.service';
 
 export interface FileUploadInterceptorOptions {
   fieldName: string;
   disk: string;
   maxCount?: number;
-  validators?: Array<{ transform: (file: Express.Multer.File) => any }>;
+  rules?: FileValidationRule[];
   isArray?: boolean;
 }
 
@@ -28,10 +29,7 @@ export class FileUploadInterceptor implements NestInterceptor {
     this.upload = multer({ storage: multer.memoryStorage() });
   }
 
-  async intercept(
-    context: ExecutionContext,
-    next: CallHandler,
-  ): Promise<Observable<any>> {
+  async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<any>> {
     const req: any = context.switchToHttp().getRequest();
     const uploadHandler = this.options.isArray
       ? this.upload.array(this.options.fieldName, this.options.maxCount)
@@ -59,10 +57,37 @@ export class FileUploadInterceptor implements NestInterceptor {
     }
 
     // Validation
-    if (this.options.validators) {
+    if (this.options.rules) {
       for (const file of files) {
-        for (const validator of this.options.validators) {
-          await validator.transform(file);
+        for (const rule of this.options.rules) {
+          if (rule.type === 'type') {
+            if (!rule.allowedMimeTypes.includes(file.mimetype)) {
+              throw new BadRequestException('Invalid file type');
+            }
+            if (rule.allowedExtensions) {
+              const ext = file.originalname.split('.').pop()?.toLowerCase();
+              if (!ext || !rule.allowedExtensions.map((e) => e.toLowerCase()).includes(ext)) {
+                throw new BadRequestException('Invalid file extension');
+              }
+            }
+          } else if (rule.type === 'size') {
+            const matchMime =
+              !rule.whenMimeType ||
+              (Array.isArray(rule.whenMimeType)
+                ? rule.whenMimeType.includes(file.mimetype)
+                : rule.whenMimeType === file.mimetype);
+            if (matchMime) {
+              if (file.size > rule.maxSize) {
+                throw new BadRequestException(`File too large (max ${rule.maxSize} bytes)`);
+              }
+              if (rule.minSize && file.size < rule.minSize) {
+                throw new BadRequestException(`File too small (min ${rule.minSize} bytes)`);
+              }
+            }
+          } else if (rule.type === 'custom') {
+            const valid = await rule.validate(file);
+            if (!valid) throw new BadRequestException(rule.message);
+          }
         }
       }
     }

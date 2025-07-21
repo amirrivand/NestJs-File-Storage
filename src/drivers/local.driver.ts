@@ -1,16 +1,12 @@
 import { promises as fs, constants, createReadStream } from 'fs';
 import * as path from 'path';
-import {
-  StorageDriver,
-  FileMetadata,
-  StorageDiskConfig,
-} from '../lib/file-storage.interface';
+import { LocalDiskConfig, StorageDriver, FileMetadata } from '../lib/file-storage.interface';
 import { Readable } from 'stream';
 
 export class LocalStorageDriver implements StorageDriver {
   private basePublicUrl: string;
 
-  constructor(private config: StorageDiskConfig) {
+  constructor(private config: LocalDiskConfig) {
     this.basePublicUrl = config.basePublicUrl || '';
   }
 

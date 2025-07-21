@@ -32,11 +32,77 @@ export interface StorageDriver {
   listDirectories(dir?: string, recursive?: boolean): Promise<string[]>;
 }
 
-export interface StorageDiskConfig {
-  driver: string;
-  root?: string;
-  [key: string]: any;
+// Local driver config
+export interface LocalDiskConfig {
+  driver: 'local';
+  root: string;
+  basePublicUrl?: string;
 }
+
+// S3 driver config
+export interface S3DiskConfig {
+  driver: 's3';
+  accessKeyId: string;
+  secretAccessKey: string;
+  region: string;
+  bucket: string;
+  endpoint?: string;
+  cdnBaseUrl?: string;
+}
+
+// Dropbox driver config
+export interface DropboxDiskConfig {
+  driver: 'dropbox';
+  accessToken: string;
+  basePublicUrl?: string;
+}
+
+// FTP driver config
+export interface FTPDiskConfig {
+  driver: 'ftp';
+  host: string;
+  user: string;
+  password: string;
+  port?: number;
+  secure?: boolean;
+  basePublicUrl?: string;
+}
+
+// SFTP driver config
+export interface SFTPDiskConfig {
+  driver: 'sftp';
+  host: string;
+  port?: number;
+  username: string;
+  password?: string;
+  privateKey?: string;
+  passphrase?: string;
+  basePublicUrl?: string;
+}
+
+// Google Drive driver config
+export interface GoogleDriveDiskConfig {
+  driver: 'gdrive';
+  client_email: string;
+  private_key: string;
+  folderId: string;
+  basePublicUrl?: string;
+}
+
+// Scoped driver config
+export interface ScopedDiskConfig {
+  driver: 'scoped';
+  prefix: string;
+}
+
+export type StorageDiskConfig =
+  | LocalDiskConfig
+  | S3DiskConfig
+  | DropboxDiskConfig
+  | FTPDiskConfig
+  | SFTPDiskConfig
+  | GoogleDriveDiskConfig
+  | ScopedDiskConfig;
 
 export interface StorageDisk {
   name: string;

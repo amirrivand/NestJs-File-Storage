@@ -1,6 +1,6 @@
 import { Dropbox } from 'dropbox';
 import fetch from 'node-fetch';
-import { StorageDriver, FileMetadata, StorageDiskConfig } from '../lib/file-storage.interface';
+import { DropboxDiskConfig, StorageDriver, FileMetadata } from '../lib/file-storage.interface';
 import { Readable, PassThrough } from 'stream';
 
 function isFileMeta(meta: any): meta is { size: number; server_modified?: string } {
@@ -11,7 +11,7 @@ export class DropboxStorageDriver implements StorageDriver {
   private dbx: Dropbox;
   private basePublicUrl: string;
 
-  constructor(private config: StorageDiskConfig) {
+  constructor(private config: DropboxDiskConfig) {
     this.dbx = new Dropbox({ accessToken: config.accessToken, fetch });
     this.basePublicUrl = config.basePublicUrl || '';
   }

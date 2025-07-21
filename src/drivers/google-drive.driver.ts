@@ -2,18 +2,14 @@ import { JWT } from 'google-auth-library';
 import { drive_v3, google } from 'googleapis';
 import * as path from 'path';
 import { PassThrough, Readable } from 'stream';
-import {
-  FileMetadata,
-  StorageDiskConfig,
-  StorageDriver,
-} from '../lib/file-storage.interface';
+import { GoogleDriveDiskConfig, StorageDriver, FileMetadata } from '../lib/file-storage.interface';
 
 export class GoogleDriveStorageDriver implements StorageDriver {
   private drive: drive_v3.Drive;
   private folderId: string;
   private basePublicUrl: string;
 
-  constructor(private config: StorageDiskConfig) {
+  constructor(private config: GoogleDriveDiskConfig) {
     const auth = new JWT({
       email: config.client_email,
       key: config.private_key,

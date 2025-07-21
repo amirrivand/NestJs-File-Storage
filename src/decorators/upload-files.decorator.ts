@@ -3,11 +3,10 @@ import {
   createParamDecorator,
   ExecutionContext,
   SetMetadata,
+  applyDecorators,
 } from '@nestjs/common';
-import {
-  FileUploadInterceptor,
-  FileUploadInterceptorOptions,
-} from '../interceptors/file-upload.interceptor';
+import { FileUploadInterceptorOptions } from '../interceptors/file-upload.interceptor';
+import { FileUploadInterceptorMixin, FileValidationRule } from './upload-file.decorator';
 
 export const FILES_UPLOAD_OPTIONS_KEY = 'filesUploadOptions';
 
@@ -15,15 +14,11 @@ export function UploadFiles(
   fieldName: string,
   options: Omit<FileUploadInterceptorOptions, 'fieldName' | 'isArray'>,
 ) {
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
-    SetMetadata(FILES_UPLOAD_OPTIONS_KEY, {
-      ...options,
-      fieldName,
-      isArray: true,
-    })(target, propertyKey, descriptor);
-    UseInterceptors(FileUploadInterceptor)(target, propertyKey, descriptor);
-    return descriptor;
-  };
+  const opts = { ...options, fieldName, isArray: true };
+  return applyDecorators(
+    SetMetadata(FILES_UPLOAD_OPTIONS_KEY, opts),
+    UseInterceptors(FileUploadInterceptorMixin(opts)),
+  );
 }
 
 export const UploadedFiles = createParamDecorator((data, ctx: ExecutionContext) => {

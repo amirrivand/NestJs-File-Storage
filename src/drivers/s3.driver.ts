@@ -9,11 +9,7 @@ import {
   GetObjectAclCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import {
-  StorageDriver,
-  FileMetadata,
-  StorageDiskConfig,
-} from '../lib/file-storage.interface';
+import { S3DiskConfig, StorageDriver, FileMetadata } from '../lib/file-storage.interface';
 import { PassThrough, Readable } from 'stream';
 
 export class S3StorageDriver implements StorageDriver {
@@ -21,7 +17,7 @@ export class S3StorageDriver implements StorageDriver {
   private bucket: string;
   private cdnBaseUrl: string;
 
-  constructor(private config: StorageDiskConfig) {
+  constructor(private config: S3DiskConfig) {
     this.s3Client = new S3Client({
       credentials: {
         accessKeyId: config.accessKeyId,
