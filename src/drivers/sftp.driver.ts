@@ -196,4 +196,53 @@ export class SFTPStorageDriver implements StorageDriver {
   ): Promise<string> {
     throw new Error('Temporary URLs are not supported for SFTP driver');
   }
+
+  /**
+   * Store a file with expiration metadata in a central .sftp-expirations.json file.
+   */
+  async putTimed(
+    relPath: string,
+    content: Buffer | string,
+    options: { expiresAt?: Date; ttl?: number; visibility?: 'public' | 'private' }
+  ): Promise<void> {
+    await this.put(relPath, content, options);
+    const expiresAt = options.expiresAt
+      ? options.expiresAt.getTime()
+      : options.ttl
+      ? Date.now() + options.ttl * 1000
+      : undefined;
+    if (expiresAt) {
+      const metaPath = path.join(this.config.root, '.sftp-expirations.json');
+      let meta: Record<string, number> = {};
+      try {
+        meta = JSON.parse(await fs.promises.readFile(metaPath, 'utf-8'));
+      } catch {}
+      meta[relPath] = expiresAt;
+      await fs.promises.writeFile(metaPath, JSON.stringify(meta));
+    }
+  }
+
+  /**
+   * Delete all expired files (based on .sftp-expirations.json). Returns number of deleted files.
+   */
+  async deleteExpiredFiles(): Promise<number> {
+    const metaPath = path.join(this.config.root, '.sftp-expirations.json');
+    let meta: Record<string, number> = {};
+    try {
+      meta = JSON.parse(await fs.promises.readFile(metaPath, 'utf-8'));
+    } catch {}
+    let deleted = 0;
+    const now = Date.now();
+    for (const [file, expiresAt] of Object.entries(meta)) {
+      if (now > expiresAt) {
+        try {
+          await this.delete(file);
+          deleted++;
+          delete meta[file];
+        } catch {}
+      }
+    }
+    await fs.promises.writeFile(metaPath, JSON.stringify(meta));
+    return deleted;
+  }
 }

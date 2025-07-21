@@ -193,4 +193,47 @@ export class LocalStorageDriver implements StorageDriver {
     if (entry.deviceId && req && req.headers['x-device-id'] !== entry.deviceId) return null;
     return entry.path;
   }
+
+  /**
+   * Store a file with expiration metadata (sidecar .meta.json file).
+   */
+  async putTimed(
+    relPath: string,
+    content: Buffer | string,
+    options: { expiresAt?: Date; ttl?: number; visibility?: 'public' | 'private' }
+  ): Promise<void> {
+    await this.put(relPath, content, options);
+    const expiresAt = options.expiresAt
+      ? options.expiresAt.getTime()
+      : options.ttl
+      ? Date.now() + options.ttl * 1000
+      : undefined;
+    if (expiresAt) {
+      const metaPath = this.fullPath(relPath) + '.meta.json';
+      await fs.writeFile(metaPath, JSON.stringify({ expiresAt }));
+    }
+  }
+
+  /**
+   * Delete all expired files (based on .meta.json files). Returns number of deleted files.
+   */
+  async deleteExpiredFiles(): Promise<number> {
+    const files = await this.listFiles('', true);
+    let deleted = 0;
+    for (const file of files) {
+      const metaPath = this.fullPath(file) + '.meta.json';
+      try {
+        const metaRaw = await fs.readFile(metaPath, 'utf-8');
+        const meta = JSON.parse(metaRaw);
+        if (meta.expiresAt && Date.now() > meta.expiresAt) {
+          await this.delete(file);
+          await fs.unlink(metaPath);
+          deleted++;
+        }
+      } catch {
+        // No meta file or parse error: skip
+      }
+    }
+    return deleted;
+  }
 }

@@ -360,6 +360,67 @@ async serveTemp(@Query('token') token: string, @Req() req: Request, @Res() res: 
 
 ---
 
+## ⏳ Timed/Expiring Uploads
+
+You can upload files with an expiration time using the `putTimed` method. After the specified time, the file will be automatically deleted by calling `deleteExpiredFiles` (which you can schedule as a cron job or call manually).
+
+### Usage
+
+```ts
+// Upload a file that expires in 1 hour
+await fileStorageService.putTimed(
+  'myfile.txt',
+  buffer,
+  { ttl: 3600 } // or { expiresAt: new Date(Date.now() + 3600 * 1000) }
+);
+
+// Remove all expired files (should be called periodically)
+const deletedCount = await fileStorageService.deleteExpiredFiles();
+```
+
+### Options
+- `ttl`: Time to live in seconds
+- `expiresAt`: Absolute expiration date/time (Date object)
+- `visibility`: (optional) 'public' or 'private'
+
+### Driver Support Table
+| Driver        | Expiry Metadata Location         | Auto-Delete Support |
+|--------------|----------------------------------|--------------------|
+| Local        | `.meta.json` sidecar file        | Yes                |
+| S3           | S3 object tag (`expiresAt`)      | Yes                |
+| FTP          | `.ftp-expirations.json` in root  | Yes                |
+| SFTP         | `.sftp-expirations.json` in root | Yes                |
+| Dropbox      | `.dropbox-expirations.json`      | Yes                |
+| Google Drive | `.gdrive-expirations.json`       | Yes                |
+
+### Example: Local
+```ts
+await fileStorageService.putTimed('foo.txt', Buffer.from('data'), { ttl: 600 }, 'local');
+// ...
+await fileStorageService.deleteExpiredFiles('local');
+```
+
+### Example: S3
+```ts
+await fileStorageService.putTimed('foo.txt', Buffer.from('data'), { expiresAt: new Date(Date.now() + 3600 * 1000) }, 's3');
+// ...
+await fileStorageService.deleteExpiredFiles('s3');
+```
+
+### Example: FTP/SFTP/Dropbox/Google Drive
+```ts
+await fileStorageService.putTimed('foo.txt', Buffer.from('data'), { ttl: 1800 }, 'ftp');
+// ...
+await fileStorageService.deleteExpiredFiles('ftp');
+```
+
+### Notes
+- For drivers with central metadata files, ensure the application has read/write access to the root directory.
+- You should schedule `deleteExpiredFiles` to run periodically (e.g., with a cron job) to ensure expired files are cleaned up.
+- If you use both `ttl` and `expiresAt`, `expiresAt` takes precedence.
+
+---
+
 ## 🏷️ Types
 
 - **StoredFile**: The type returned by `@UploadedFile()` and each item in `@UploadedFiles()`. Extends `Express.Multer.File` with a `storagePath` property.

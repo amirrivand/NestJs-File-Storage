@@ -119,4 +119,27 @@ export class FileStorageService {
     }
     throw new Error('Temporary URL is not supported for this disk');
   }
+
+  async putTimed(
+    path: string,
+    content: Buffer | string,
+    options: { expiresAt?: Date; ttl?: number; visibility?: 'public' | 'private' } = {},
+    disk?: string
+  ) {
+    const driver = this.disk(disk);
+    if (typeof driver.putTimed === 'function') {
+      return driver.putTimed(path, content, options);
+    }
+    // Fallback: just put the file (no expiration)
+    return driver.put(path, content, options);
+  }
+
+  async deleteExpiredFiles(disk?: string): Promise<number> {
+    const driver = this.disk(disk);
+    if (typeof driver.deleteExpiredFiles === 'function') {
+      return driver.deleteExpiredFiles();
+    }
+    // Fallback: do nothing
+    return 0;
+  }
 }

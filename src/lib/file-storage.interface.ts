@@ -14,6 +14,12 @@ export interface StorageDriver {
     content: Buffer | string,
     options?: { visibility?: 'public' | 'private' },
   ): Promise<void>;
+  putTimed?(
+    path: string,
+    content: Buffer | string,
+    options: { expiresAt?: Date; ttl?: number; visibility?: 'public' | 'private' },
+  ): Promise<void>;
+  deleteExpiredFiles?(): Promise<number>;
   get(path: string): Promise<Buffer>;
   delete(path: string): Promise<void>;
   exists(path: string): Promise<boolean>;
@@ -71,6 +77,7 @@ export interface FTPDiskConfig {
   port?: number;
   secure?: boolean;
   basePublicUrl?: string;
+  root: string;
 }
 
 // SFTP driver config

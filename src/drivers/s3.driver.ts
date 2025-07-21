@@ -7,6 +7,10 @@ import {
   ListObjectsV2Command,
   CopyObjectCommand,
   GetObjectAclCommand,
+  Tagging,
+  PutObjectTaggingCommand,
+  GetObjectTaggingCommand,
+  ListObjectsV2CommandOutput,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { S3DiskConfig, StorageDriver, FileMetadata } from '../lib/file-storage.interface';
@@ -272,5 +276,57 @@ export class S3StorageDriver implements StorageDriver {
         pass.emit('error', err);
       });
     return pass;
+  }
+
+  /**
+   * Store a file with expiration metadata (S3 object tag 'expiresAt').
+   */
+  async putTimed(
+    path: string,
+    content: Buffer | string,
+    options: { expiresAt?: Date; ttl?: number; visibility?: 'public' | 'private' }
+  ): Promise<void> {
+    await this.put(path, content, options);
+    const expiresAt = options.expiresAt
+      ? options.expiresAt.getTime()
+      : options.ttl
+      ? Date.now() + options.ttl * 1000
+      : undefined;
+    if (expiresAt) {
+      const tagging: Tagging = { TagSet: [{ Key: 'expiresAt', Value: String(expiresAt) }] };
+      await this.s3Client.send(new PutObjectTaggingCommand({
+        Bucket: this.bucket,
+        Key: path,
+        Tagging: tagging,
+      }));
+    }
+  }
+
+  /**
+   * Delete all expired files (based on S3 object tag 'expiresAt'). Returns number of deleted files.
+   */
+  async deleteExpiredFiles(): Promise<number> {
+    let deleted = 0;
+    let ContinuationToken: string | undefined = undefined;
+    do {
+      const listResp: ListObjectsV2CommandOutput = await this.s3Client.send(new ListObjectsV2Command({
+        Bucket: this.bucket,
+        ContinuationToken,
+      }));
+      for (const obj of listResp.Contents || []) {
+        if (!obj.Key) continue;
+        const tagResp = await this.s3Client.send(new GetObjectTaggingCommand({
+          Bucket: this.bucket,
+          Key: obj.Key,
+        }));
+        const expiresTag = tagResp.TagSet?.find(t => t.Key === 'expiresAt');
+        if (expiresTag && Date.now() > Number(expiresTag.Value)) {
+          await this.s3Client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: obj.Key }));
+          deleted++;
+        }
+      }
+      ContinuationToken = listResp.NextContinuationToken;
+    } while (ContinuationToken);
+    return deleted;
   }
 }
