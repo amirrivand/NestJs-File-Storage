@@ -17,6 +17,7 @@ export interface FileUploadInterceptorOptions {
   rules?: FileValidationRule[];
   isArray?: boolean;
   filenameGenerator?: (file: Express.Multer.File, context: ExecutionContext) => Promise<string> | string;
+  uploadPath?: string | ((file: Express.Multer.File, context: ExecutionContext) => string | Promise<string>);
 }
 
 @Injectable()
@@ -96,24 +97,41 @@ export class FileUploadInterceptor implements NestInterceptor {
     // Store files
     const storedFiles = [];
     for (const file of files) {
-      let storagePath: string;
-      // Order: per-upload > global > default
+      // 1. Determine upload directory
+      let uploadDir = '';
+      if (this.options.uploadPath) {
+        if (typeof this.options.uploadPath === 'function') {
+          uploadDir = await this.options.uploadPath(file, context);
+        } else {
+          uploadDir = this.options.uploadPath;
+        }
+      }
+      // 2. Get disk root (if available)
+      let root = '';
+      const diskConfig = this.storage.config?.disks?.[this.options.disk];
+      if (diskConfig && typeof (diskConfig as any).root === 'string') {
+        root = (diskConfig as any).root;
+      }
+      // 3. Generate filename
+      let filename: string;
       if (this.options.filenameGenerator) {
-        storagePath = await this.options.filenameGenerator(file, context);
+        filename = await this.options.filenameGenerator(file, context);
       } else if (this.storage.config?.filenameGenerator) {
-        storagePath = await this.storage.config.filenameGenerator(file, context);
+        filename = await this.storage.config.filenameGenerator(file, context);
       } else {
-        storagePath = file.originalname;
-        const ext = storagePath.includes('.') ? '.' + storagePath.split('.').pop() : '';
-        const base = ext ? storagePath.slice(0, -ext.length) : storagePath;
-        let candidate = storagePath;
+        filename = file.originalname;
+        const ext = filename.includes('.') ? '.' + filename.split('.').pop() : '';
+        const base = ext ? filename.slice(0, -ext.length) : filename;
+        let candidate = filename;
         let counter = 1;
         while (await this.storage.disk(this.options.disk).exists(candidate)) {
           candidate = `${base}(${counter})${ext}`;
           counter++;
         }
-        storagePath = candidate;
+        filename = candidate;
       }
+      // 4. Build final storage path
+      let storagePath = [root, uploadDir, filename].filter(Boolean).join('/').replace(/\\/g, '/');
       await this.storage.disk(this.options.disk).put(storagePath, file.buffer);
       storedFiles.push({ ...file, storagePath });
     }

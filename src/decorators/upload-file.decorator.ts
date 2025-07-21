@@ -28,6 +28,12 @@ export function FileUploadInterceptorMixin(
   return mixin(MixinInterceptor);
 }
 
+/**
+ * @param uploadPath Optional. String or function (file, ctx) => string. If provided, will be joined with disk root for final upload path.
+ * Example:
+ *   uploadPath: 'avatars'
+ *   uploadPath: (file, ctx) => `users/${ctx.switchToHttp().getRequest().user.id}/uploads`
+ */
 export function UploadFile(
   fieldName: string,
   options: Omit<FileUploadInterceptorOptions, 'fieldName' | 'isArray'>,
