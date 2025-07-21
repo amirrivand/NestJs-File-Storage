@@ -21,10 +21,12 @@ const DRIVER_MAP = {
 
 @Injectable()
 export class FileStorageService {
+  public readonly config?: StorageConfig;
   private disks: Map<string, StorageDisk> = new Map();
   private defaultDisk: string = 'default';
 
   constructor(@Inject('STORAGE_CONFIG') config?: StorageConfig) {
+    this.config = config;
     if (config) {
       this.defaultDisk = config.default;
       for (const [name, diskConfig] of Object.entries(config.disks)) {
@@ -108,5 +110,13 @@ export class FileStorageService {
   }
   async url(path: string) {
     return this.disk().url?.(path);
+  }
+
+  async getTemporaryUrl(path: string, expiresIn?: number, options?: { ip?: string; deviceId?: string }, disk?: string) {
+    const driver = this.disk(disk);
+    if (typeof driver.getTemporaryUrl === 'function') {
+      return driver.getTemporaryUrl(path, expiresIn, options);
+    }
+    throw new Error('Temporary URL is not supported for this disk');
   }
 }

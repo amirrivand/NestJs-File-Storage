@@ -20,6 +20,11 @@ export interface StorageDriver {
   copy(src: string, dest: string): Promise<void>;
   move(src: string, dest: string): Promise<void>;
   url?(path: string): Promise<string>;
+  getTemporaryUrl?(
+    path: string,
+    expiresIn?: number,
+    options?: { ip?: string; deviceId?: string }
+  ): Promise<string>;
   getMetadata?(path: string): Promise<FileMetadata>;
   makeDirectory?(path: string): Promise<void>;
   deleteDirectory?(path: string): Promise<void>;

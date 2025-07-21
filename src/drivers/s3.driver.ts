@@ -201,10 +201,21 @@ export class S3StorageDriver implements StorageDriver {
     return this.cdnBaseUrl ? `${this.cdnBaseUrl}/${path}` : path;
   }
 
+  /**
+   * Generate a temporary (signed) URL for an S3 file. Only expiration is supported; IP/device restriction is not supported by AWS S3.
+   * @param path File path
+   * @param expiresIn Expiration in seconds (default: 3600)
+   * @param options Optional { ip, deviceId } (not supported)
+   * @returns Signed temporary URL
+   */
   async getTemporaryUrl(
     path: string,
     expiresIn: number = 3600,
+    options?: { ip?: string; deviceId?: string }
   ): Promise<string> {
+    if (options?.ip || options?.deviceId) {
+      throw new Error('IP/device restriction is not supported for S3 temporary URLs');
+    }
     const command = new GetObjectCommand({
       Bucket: this.bucket,
       Key: path,

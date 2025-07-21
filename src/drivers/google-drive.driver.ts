@@ -188,4 +188,15 @@ export class GoogleDriveStorageDriver implements StorageDriver {
     // Google Drive does not provide direct public URLs by default
     return filePath;
   }
+
+  /**
+   * Temporary URLs are not supported for Google Drive driver.
+   */
+  async getTemporaryUrl(
+    relPath: string,
+    expiresIn?: number,
+    options?: { ip?: string; deviceId?: string }
+  ): Promise<string> {
+    throw new Error('Temporary URLs are not supported for Google Drive driver');
+  }
 }

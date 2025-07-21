@@ -137,4 +137,15 @@ export class DropboxStorageDriver implements StorageDriver {
     // You may want to use shared links or basePublicUrl
     return path;
   }
+
+  /**
+   * Temporary URLs are not supported for Dropbox driver.
+   */
+  async getTemporaryUrl(
+    relPath: string,
+    expiresIn?: number,
+    options?: { ip?: string; deviceId?: string }
+  ): Promise<string> {
+    throw new Error('Temporary URLs are not supported for Dropbox driver');
+  }
 }

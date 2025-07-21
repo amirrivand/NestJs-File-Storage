@@ -18,6 +18,7 @@
 - **Internal Upload Solution**: Seamless file handling in controllers
 - **Validation**: File type, size, and multi-file validation pipes
 - **Async/Dynamic Disks**: Register disks at runtime from config/db
+- **Flexible Filename Generation**: Global and per-upload filename generator support
 
 ---
 
@@ -36,6 +37,7 @@ yarn add @nestjs/fs
 - [Quick Start](#-quick-start)
 - [Configuration](#-configuration)
 - [Usage Examples](#-usage-examples)
+- [Filename Generation](#-filename-generation)
 - [Advanced Patterns](#-advanced-patterns)
 - [NestJS Integration](#-nestjs-integration)
 - [Drivers](#-drivers)
@@ -70,6 +72,14 @@ export class AppModule {}
 ## ⚙️ Configuration
 
 ```ts
+import { FilenameGenerator } from '@nestjs/fs';
+
+const myGlobalFilenameGenerator: FilenameGenerator = (file, context) => {
+  // Example: Add timestamp to filename
+  const ext = file.originalname.split('.').pop();
+  return `${Date.now()}-${file.fieldname}.${ext}`;
+};
+
 FileStorageModule.forRoot({
   default: 'local',
   disks: {
@@ -85,6 +95,7 @@ FileStorageModule.forRoot({
     },
     // ftp, sftp, dropbox, gdrive, ...
   },
+  filenameGenerator: myGlobalFilenameGenerator, // 👈 Add global filename generator
 });
 ```
 
@@ -134,6 +145,49 @@ import { FileResponse } from '@nestjs/fs';
 @FileResponse('local', ctx => ctx.switchToHttp().getRequest().params.path, true)
 async download() {}
 ```
+
+### Per-upload filenameGenerator (Override)
+
+```ts
+import { Controller, Post } from '@nestjs/common';
+import { UploadFile, UploadedFile, StoredFile } from '@nestjs/fs';
+
+@Controller('files')
+export class FileController {
+  @Post('upload-custom')
+  @UploadFile('file', {
+    disk: 'local',
+    filenameGenerator: (file, ctx) => {
+      // Example: Add userId from token to filename
+      const userId = ctx.switchToHttp().getRequest().user?.id ?? 'anon';
+      const ext = file.originalname.split('.').pop();
+      return `${userId}-${Date.now()}.${ext}`;
+    },
+  })
+  async upload(@UploadedFile() file: StoredFile) {
+    return file;
+  }
+}
+```
+
+---
+
+## 🏷️ Filename Generation
+
+### Priority
+
+- If `filenameGenerator` is set in the decorator (per-upload), it will be used.
+- Otherwise, the global `filenameGenerator` from the module config will be used (if set).
+- If neither is set, the default logic is used: the original filename, with a counter if a file with the same name exists.
+
+### API
+
+```ts
+type FilenameGenerator = (file: Express.Multer.File, context: ExecutionContext) => Promise<string> | string;
+```
+
+- You can set this function globally in the module config as `filenameGenerator`.
+- Or override it per-upload in the decorator options.
 
 ---
 
@@ -200,12 +254,116 @@ export class FileController {
 - **FileTypePipe**: Restrict by mimetype/extension
 - **FileSizePipe**: Restrict by size
 - **MultiFilePipe**: Validate arrays of files
+- **Flexible FileValidationRule**: Use the `rules` option in upload decorators for advanced validation
+
+### FileValidationRule (rules)
+
+You can use the `rules` property in upload decorators to define flexible validation logic for uploaded files. Rules can be combined as an array.
+
+#### Type Rule
+```ts
+@UploadFile('file', {
+  disk: 'local',
+  rules: [
+    { type: 'type', allowedMimeTypes: ['image/png', 'image/jpeg'], allowedExtensions: ['png', 'jpg', 'jpeg'] },
+  ],
+})
+```
+
+#### Size Rule
+```ts
+@UploadFile('file', {
+  disk: 'local',
+  rules: [
+    { type: 'size', maxSize: 5 * 1024 * 1024, minSize: 1024 }, // 1KB - 5MB
+  ],
+})
+```
+
+#### Custom Rule
+```ts
+@UploadFile('file', {
+  disk: 'local',
+  rules: [
+    {
+      type: 'custom',
+      validate: async (file) => file.originalname.startsWith('invoice_'),
+      message: 'Filename must start with invoice_.'
+    },
+  ],
+})
+```
+
+**Rule Types:**
+- `type`: Restrict by MIME type and/or file extension
+- `size`: Restrict by file size (min/max, optionally per MIME type)
+- `custom`: Provide any async/sync validation logic
+
+You can use these rules in both `@UploadFile` and `@UploadFiles` decorators.
+
+---
+
+## 🔗 Temporary/Signed URLs
+
+You can generate temporary (signed) URLs for files using the `getTemporaryUrl` method on the `FileStorageService` or directly on the driver. This allows you to share a file for a limited time, optionally restricted to a specific IP or device (if supported).
+
+### Usage
+
+```ts
+// Inject FileStorageService
+const url = await fileStorageService.getTemporaryUrl(
+  'path/to/file.txt',
+  600, // expires in 600 seconds (10 minutes)
+  { ip: '1.2.3.4', deviceId: 'abc123' }, // optional, only for local
+  'local' // disk name (optional, default is default disk)
+);
+```
+
+### Options
+- `expiresIn`: Expiration time in seconds (default: 3600)
+- `ip`: (Optional, only for local) Restrict link to a specific IP
+- `deviceId`: (Optional, only for local) Restrict link to a specific device (must be sent as `x-device-id` header)
+
+### Driver Support
+- **Local**: Supported. Generates a signed URL with a token, validates expiration, IP, and device if provided.
+- **S3**: Supported. Generates a signed URL with expiration. IP/device restriction is NOT supported (throws error if used).
+- **FTP, SFTP, Dropbox, Google Drive**: Not supported. Throws an error if called.
+
+### Example: S3
+```ts
+const url = await fileStorageService.getTemporaryUrl('myfile.txt', 900, undefined, 's3');
+// url is a signed AWS S3 URL valid for 15 minutes
+```
+
+### Example: Local
+```ts
+const url = await fileStorageService.getTemporaryUrl('myfile.txt', 600, { ip: '1.2.3.4' }, 'local');
+// url is something like http://localhost:3000/files/temp?token=...
+// You need to implement a route to serve this (see below)
+```
+
+### Serving Local Temp Links
+For local driver, you must implement an endpoint (e.g., `/files/temp?token=...`) that:
+- Validates the token using `LocalStorageDriver.validateTempToken(token, req)`
+- Streams the file if valid, or returns 404/403 if invalid/expired
+
+Example (NestJS):
+```ts
+@Get('files/temp')
+async serveTemp(@Query('token') token: string, @Req() req: Request, @Res() res: Response) {
+  const relPath = LocalStorageDriver.validateTempToken(token, req);
+  if (!relPath) return res.status(403).send('Invalid or expired link');
+  const stream = fileStorageService.disk('local').createReadStream(relPath);
+  stream.pipe(res);
+}
+```
 
 ---
 
 ## 🏷️ Types
 
 - **StoredFile**: The type returned by `@UploadedFile()` and each item in `@UploadedFiles()`. Extends `Express.Multer.File` with a `storagePath` property.
+- **FilenameGenerator**: `(file: Express.Multer.File, context: ExecutionContext) => Promise<string> | string;`
 
 ---
 

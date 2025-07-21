@@ -16,6 +16,7 @@ export interface FileUploadInterceptorOptions {
   maxCount?: number;
   rules?: FileValidationRule[];
   isArray?: boolean;
+  filenameGenerator?: (file: Express.Multer.File, context: ExecutionContext) => Promise<string> | string;
 }
 
 @Injectable()
@@ -95,7 +96,24 @@ export class FileUploadInterceptor implements NestInterceptor {
     // Store files
     const storedFiles = [];
     for (const file of files) {
-      const storagePath = file.originalname; // You may want to generate a unique name
+      let storagePath: string;
+      // Order: per-upload > global > default
+      if (this.options.filenameGenerator) {
+        storagePath = await this.options.filenameGenerator(file, context);
+      } else if (this.storage.config?.filenameGenerator) {
+        storagePath = await this.storage.config.filenameGenerator(file, context);
+      } else {
+        storagePath = file.originalname;
+        const ext = storagePath.includes('.') ? '.' + storagePath.split('.').pop() : '';
+        const base = ext ? storagePath.slice(0, -ext.length) : storagePath;
+        let candidate = storagePath;
+        let counter = 1;
+        while (await this.storage.disk(this.options.disk).exists(candidate)) {
+          candidate = `${base}(${counter})${ext}`;
+          counter++;
+        }
+        storagePath = candidate;
+      }
       await this.storage.disk(this.options.disk).put(storagePath, file.buffer);
       storedFiles.push({ ...file, storagePath });
     }

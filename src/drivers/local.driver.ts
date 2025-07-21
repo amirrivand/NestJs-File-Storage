@@ -2,9 +2,12 @@ import { promises as fs, constants, createReadStream } from 'fs';
 import * as path from 'path';
 import { LocalDiskConfig, StorageDriver, FileMetadata } from '../lib/file-storage.interface';
 import { Readable } from 'stream';
+import * as crypto from 'crypto';
+import { IncomingMessage } from 'http';
 
 export class LocalStorageDriver implements StorageDriver {
   private basePublicUrl: string;
+  private static tempLinks: Map<string, { path: string; expiresAt: number; ip?: string; deviceId?: string }> = new Map();
 
   constructor(private config: LocalDiskConfig) {
     this.basePublicUrl = config.basePublicUrl || '';
@@ -157,5 +160,37 @@ export class LocalStorageDriver implements StorageDriver {
   async append(relPath: string, content: Buffer | string): Promise<void> {
     const filePath = this.fullPath(relPath);
     await fs.appendFile(filePath, content);
+  }
+
+  /**
+   * Generate a temporary URL for a local file. Supports optional IP/device restriction.
+   * @param relPath File path
+   * @param expiresIn Expiration in seconds (default: 3600)
+   * @param options Optional { ip, deviceId }
+   * @returns Signed temporary URL
+   */
+  async getTemporaryUrl(
+    relPath: string,
+    expiresIn: number = 3600,
+    options?: { ip?: string; deviceId?: string }
+  ): Promise<string> {
+    const token = crypto.randomBytes(24).toString('hex');
+    const expiresAt = Date.now() + expiresIn * 1000;
+    LocalStorageDriver.tempLinks.set(token, { path: relPath, expiresAt, ...options });
+    // Example: http://host/files/temp?token=...
+    const base = this.basePublicUrl || '';
+    return `${base}/temp?token=${token}`;
+  }
+
+  static validateTempToken(token: string, req?: IncomingMessage): string | null {
+    const entry = LocalStorageDriver.tempLinks.get(token);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+      LocalStorageDriver.tempLinks.delete(token);
+      return null;
+    }
+    if (entry.ip && req && req.socket.remoteAddress !== entry.ip) return null;
+    if (entry.deviceId && req && req.headers['x-device-id'] !== entry.deviceId) return null;
+    return entry.path;
   }
 }

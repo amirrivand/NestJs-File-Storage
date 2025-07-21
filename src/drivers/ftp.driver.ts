@@ -183,4 +183,15 @@ export class FTPStorageDriver implements StorageDriver {
     }
     return relPath;
   }
+
+  /**
+   * Temporary URLs are not supported for FTP driver.
+   */
+  async getTemporaryUrl(
+    relPath: string,
+    expiresIn?: number,
+    options?: { ip?: string; deviceId?: string }
+  ): Promise<string> {
+    throw new Error('Temporary URLs are not supported for FTP driver');
+  }
 }

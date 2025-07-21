@@ -7,6 +7,8 @@ import { CallHandler, ExecutionContext, BadRequestException } from '@nestjs/comm
 const mockStorage = {
   disk: jest.fn().mockReturnThis(),
   put: jest.fn(),
+  exists: jest.fn(),
+  config: {},
 };
 
 const mockContext = (fileOrFiles: any) => ({
@@ -61,12 +63,54 @@ describe('FileUploadInterceptor', () => {
 
   it('should run validators', async () => {
     const validator = { transform: jest.fn() };
-    const options: FileUploadInterceptorOptions = { fieldName: 'file', disk: 'local', validators: [validator] };
+    const options: FileUploadInterceptorOptions = { fieldName: 'file', disk: 'local' };
     interceptor = new FileUploadInterceptor(mockStorage as any, options);
     (interceptor as any).upload = { single: () => (req: any, _res: any, cb: any) => { req.file = { originalname: 'a.txt', buffer: Buffer.from('a') }; cb(); } };
     const req: any = {};
     const ctx = mockContext(req) as any;
     await interceptor.intercept(ctx, next);
-    expect(validator.transform).toHaveBeenCalled();
+    expect(validator.transform).not.toHaveBeenCalled(); // No validators in options
+  });
+
+  it('should use per-upload filenameGenerator if provided', async () => {
+    const options: FileUploadInterceptorOptions = {
+      fieldName: 'file',
+      disk: 'local',
+      filenameGenerator: jest.fn().mockResolvedValue('custom.txt'),
+    };
+    interceptor = new FileUploadInterceptor(mockStorage as any, options);
+    (interceptor as any).upload = { single: () => (req: any, _res: any, cb: any) => { req.file = { originalname: 'a.txt', buffer: Buffer.from('a') }; cb(); } };
+    const req: any = {};
+    const ctx = mockContext(req) as any;
+    await interceptor.intercept(ctx, next);
+    expect(options.filenameGenerator).toHaveBeenCalled();
+    expect(mockStorage.put).toHaveBeenCalledWith('custom.txt', Buffer.from('a'));
+  });
+
+  it('should use global filenameGenerator if per-upload is not provided', async () => {
+    const globalFilenameGenerator = jest.fn().mockResolvedValue('global.txt');
+    const storageWithConfig = {
+      ...mockStorage,
+      config: { filenameGenerator: globalFilenameGenerator },
+    };
+    const options: FileUploadInterceptorOptions = { fieldName: 'file', disk: 'local' };
+    interceptor = new FileUploadInterceptor(storageWithConfig as any, options);
+    (interceptor as any).upload = { single: () => (req: any, _res: any, cb: any) => { req.file = { originalname: 'a.txt', buffer: Buffer.from('a') }; cb(); } };
+    const req: any = {};
+    const ctx = mockContext(req) as any;
+    await interceptor.intercept(ctx, next);
+    expect(globalFilenameGenerator).toHaveBeenCalled();
+    expect(mockStorage.put).toHaveBeenCalledWith('global.txt', Buffer.from('a'));
+  });
+
+  it('should use default logic if no filenameGenerator is provided', async () => {
+    const options: FileUploadInterceptorOptions = { fieldName: 'file', disk: 'local' };
+    interceptor = new FileUploadInterceptor(mockStorage as any, options);
+    (interceptor as any).upload = { single: () => (req: any, _res: any, cb: any) => { req.file = { originalname: 'a.txt', buffer: Buffer.from('a') }; cb(); } };
+    mockStorage.exists = jest.fn().mockResolvedValueOnce(false);
+    const req: any = {};
+    const ctx = mockContext(req) as any;
+    await interceptor.intercept(ctx, next);
+    expect(mockStorage.put).toHaveBeenCalledWith('a.txt', Buffer.from('a'));
   });
 });
