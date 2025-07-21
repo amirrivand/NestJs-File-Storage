@@ -29,7 +29,7 @@ export interface StorageDriver {
   getTemporaryUrl?(
     path: string,
     expiresIn?: number,
-    options?: { ip?: string; deviceId?: string }
+    options?: { ip?: string; deviceId?: string },
   ): Promise<string>;
   getMetadata?(path: string): Promise<FileMetadata>;
   makeDirectory?(path: string): Promise<void>;
@@ -55,10 +55,11 @@ export interface S3DiskConfig {
   driver: 's3';
   accessKeyId: string;
   secretAccessKey: string;
-  region: string;
+  region?: string;
   bucket: string;
   endpoint?: string;
   cdnBaseUrl?: string;
+  apiVersion?: string;
 }
 
 // Dropbox driver config

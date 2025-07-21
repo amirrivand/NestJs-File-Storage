@@ -7,12 +7,20 @@ import { IncomingMessage } from 'http';
 
 export class LocalStorageDriver implements StorageDriver {
   private basePublicUrl: string;
-  private static tempLinks: Map<string, { path: string; expiresAt: number; ip?: string; deviceId?: string }> = new Map();
+  private static tempLinks: Map<
+    string,
+    { path: string; expiresAt: number; ip?: string; deviceId?: string }
+  > = new Map();
 
   constructor(private config: LocalDiskConfig) {
     this.basePublicUrl = config.basePublicUrl || '';
   }
 
+  /**
+   * Merge the path with root path and if the path is absolute, it will return the path as is
+   * @param relPath - The relative path to merge with the root path
+   * @returns The full path
+   */
   private fullPath(relPath: string): string {
     return path.join(this.config.root || '', relPath);
   }
@@ -27,9 +35,7 @@ export class LocalStorageDriver implements StorageDriver {
       if (entry.isDirectory()) {
         if (recursive) {
           results = results.concat(
-            (await this.listFiles(relEntryPath, true)).map((f) =>
-              path.join(entry.name, f),
-            ),
+            (await this.listFiles(relEntryPath, true)).map((f) => path.join(entry.name, f)),
           );
         }
       } else {
@@ -48,9 +54,7 @@ export class LocalStorageDriver implements StorageDriver {
         const relEntryPath = path.join(dir, entry.name);
         results.push(relEntryPath);
         if (recursive) {
-          results = results.concat(
-            await this.listDirectories(relEntryPath, true),
-          );
+          results = results.concat(await this.listDirectories(relEntryPath, true));
         }
       }
     }
@@ -70,10 +74,7 @@ export class LocalStorageDriver implements StorageDriver {
     }
   }
 
-  async setVisibility(
-    relPath: string,
-    visibility: 'public' | 'private',
-  ): Promise<void> {
+  async setVisibility(relPath: string, visibility: 'public' | 'private'): Promise<void> {
     const filePath = this.fullPath(relPath);
     const mode = visibility === 'public' ? 0o644 : 0o600;
     await fs.chmod(filePath, mode);
@@ -172,7 +173,7 @@ export class LocalStorageDriver implements StorageDriver {
   async getTemporaryUrl(
     relPath: string,
     expiresIn: number = 3600,
-    options?: { ip?: string; deviceId?: string }
+    options?: { ip?: string; deviceId?: string },
   ): Promise<string> {
     const token = crypto.randomBytes(24).toString('hex');
     const expiresAt = Date.now() + expiresIn * 1000;
@@ -200,14 +201,14 @@ export class LocalStorageDriver implements StorageDriver {
   async putTimed(
     relPath: string,
     content: Buffer | string,
-    options: { expiresAt?: Date; ttl?: number; visibility?: 'public' | 'private' }
+    options: { expiresAt?: Date; ttl?: number; visibility?: 'public' | 'private' },
   ): Promise<void> {
     await this.put(relPath, content, options);
     const expiresAt = options.expiresAt
       ? options.expiresAt.getTime()
       : options.ttl
-      ? Date.now() + options.ttl * 1000
-      : undefined;
+        ? Date.now() + options.ttl * 1000
+        : undefined;
     if (expiresAt) {
       const metaPath = this.fullPath(relPath) + '.meta.json';
       await fs.writeFile(metaPath, JSON.stringify({ expiresAt }));

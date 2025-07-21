@@ -27,9 +27,9 @@ export class S3StorageDriver implements StorageDriver {
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.secretAccessKey,
       },
-      region: config.region,
+      region: config.region || 'default',
       endpoint: config.endpoint,
-      apiVersion: 'v3',
+      apiVersion: config.apiVersion,
     });
     this.bucket = config.bucket;
     this.cdnBaseUrl = config.cdnBaseUrl || '';
@@ -50,10 +50,7 @@ export class S3StorageDriver implements StorageDriver {
     );
   }
 
-  async setVisibility(
-    path: string,
-    visibility: 'public' | 'private',
-  ): Promise<void> {
+  async setVisibility(path: string, visibility: 'public' | 'private'): Promise<void> {
     await this.s3Client.send(
       new PutObjectCommand({
         Bucket: this.bucket,
@@ -188,9 +185,7 @@ export class S3StorageDriver implements StorageDriver {
     );
     let dirs: string[] = [];
     if (response.CommonPrefixes) {
-      dirs = response.CommonPrefixes.map((cp) => cp.Prefix || '').filter(
-        Boolean,
-      );
+      dirs = response.CommonPrefixes.map((cp) => cp.Prefix || '').filter(Boolean);
     }
     if (recursive && dirs.length > 0) {
       for (const dir of dirs) {
@@ -215,7 +210,7 @@ export class S3StorageDriver implements StorageDriver {
   async getTemporaryUrl(
     path: string,
     expiresIn: number = 3600,
-    options?: { ip?: string; deviceId?: string }
+    options?: { ip?: string; deviceId?: string },
   ): Promise<string> {
     if (options?.ip || options?.deviceId) {
       throw new Error('IP/device restriction is not supported for S3 temporary URLs');
@@ -284,21 +279,23 @@ export class S3StorageDriver implements StorageDriver {
   async putTimed(
     path: string,
     content: Buffer | string,
-    options: { expiresAt?: Date; ttl?: number; visibility?: 'public' | 'private' }
+    options: { expiresAt?: Date; ttl?: number; visibility?: 'public' | 'private' },
   ): Promise<void> {
     await this.put(path, content, options);
     const expiresAt = options.expiresAt
       ? options.expiresAt.getTime()
       : options.ttl
-      ? Date.now() + options.ttl * 1000
-      : undefined;
+        ? Date.now() + options.ttl * 1000
+        : undefined;
     if (expiresAt) {
       const tagging: Tagging = { TagSet: [{ Key: 'expiresAt', Value: String(expiresAt) }] };
-      await this.s3Client.send(new PutObjectTaggingCommand({
-        Bucket: this.bucket,
-        Key: path,
-        Tagging: tagging,
-      }));
+      await this.s3Client.send(
+        new PutObjectTaggingCommand({
+          Bucket: this.bucket,
+          Key: path,
+          Tagging: tagging,
+        }),
+      );
     }
   }
 
@@ -309,17 +306,21 @@ export class S3StorageDriver implements StorageDriver {
     let deleted = 0;
     let ContinuationToken: string | undefined = undefined;
     do {
-      const listResp: ListObjectsV2CommandOutput = await this.s3Client.send(new ListObjectsV2Command({
-        Bucket: this.bucket,
-        ContinuationToken,
-      }));
+      const listResp: ListObjectsV2CommandOutput = await this.s3Client.send(
+        new ListObjectsV2Command({
+          Bucket: this.bucket,
+          ContinuationToken,
+        }),
+      );
       for (const obj of listResp.Contents || []) {
         if (!obj.Key) continue;
-        const tagResp = await this.s3Client.send(new GetObjectTaggingCommand({
-          Bucket: this.bucket,
-          Key: obj.Key,
-        }));
-        const expiresTag = tagResp.TagSet?.find(t => t.Key === 'expiresAt');
+        const tagResp = await this.s3Client.send(
+          new GetObjectTaggingCommand({
+            Bucket: this.bucket,
+            Key: obj.Key,
+          }),
+        );
+        const expiresTag = tagResp.TagSet?.find((t) => t.Key === 'expiresAt');
         if (expiresTag && Date.now() > Number(expiresTag.Value)) {
           await this.s3Client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: obj.Key }));
           deleted++;
