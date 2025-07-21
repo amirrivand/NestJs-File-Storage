@@ -1,0 +1,79 @@
+{
+  "name": "@nestjs/fs",
+  "version": "1.0.0",
+  "description": "A powerful, multi-driver file storage solution for NestJS, inspired by Laravel Flysystem.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^9.0.0 || ^10.0.0",
+    "@nestjs/core": "^9.0.0 || ^10.0.0",
+    "rxjs": "^7.8.1"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.848.0",
+    "@aws-sdk/s3-request-presigner": "^3.848.0",
+    "@nestjs/common": "^11.1.5",
+    "@nestjs/core": "^11.1.5",
+    "@nestjs/swagger": "^11.2.0",
+    "basic-ftp": "^5.0.5",
+    "class-validator": "^0.14.2",
+    "dropbox": "^10.34.0",
+    "googleapis": "^153.0.0",
+    "multer": "^2.0.2",
+    "node-fetch": "^3.3.2",
+    "rxjs": "^7.8.2",
+    "ssh2-sftp-client": "^12.0.1"
+  },
+  "devDependencies": {
+    "@types/multer": "^2.0.0",
+    "@types/node": "^24.0.15",
+    "@types/node-fetch": "^2.6.12",
+    "@types/ssh2-sftp-client": "^9.0.5",
+    "@typescript-eslint/eslint-plugin": "^8.37.0",
+    "@typescript-eslint/parser": "^8.37.0",
+    "eslint": "^9.31.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.3",
+    "prettier": "^3.6.2",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "nestjs",
+    "file-storage",
+    "s3",
+    "ftp",
+    "dropbox",
+    "google-drive",
+    "upload",
+    "laravel",
+    "flysystem"
+  ],
+  "author": {
+    "name": "Amir Mohammad Rivand",
+    "email": "a_rivand@yahoo.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/amirrivand/NestJs-File-Storage.git"
+  },
+  "homepage": "https://github.com/amirrivand/NestJs-File-Storage#readme",
+  "bugs": {
+    "url": "https://github.com/amirrivand/NestJs-File-Storage/issues"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=7.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610"
+}

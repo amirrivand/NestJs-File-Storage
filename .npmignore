@@ -1,0 +1,14 @@
+src/
+test/
+__tests__/
+*.spec.ts
+*.test.ts
+node_modules/
+tsconfig.*.json
+!.npmignore
+!.gitignore
+!.env
+.git/
+.idea/
+dist/
+!dist/ 
