@@ -1,6 +1,6 @@
 {
   "name": "@amirrivand/nestjs-file-storage",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A powerful, multi-driver file storage solution for NestJS, inspired by Laravel Flysystem.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
