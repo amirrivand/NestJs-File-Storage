@@ -1,5 +1,5 @@
 {
-  "name": "@nestjs/fs",
+  "name": "@amirrivand/nestjs-file-storage",
   "version": "1.0.0",
   "description": "A powerful, multi-driver file storage solution for NestJS, inspired by Laravel Flysystem.",
   "main": "dist/index.js",
