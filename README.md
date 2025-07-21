@@ -1,8 +1,8 @@
-# @nestjs/fs
+# @amirrivand/nestjs-file-storage
 
 > **A powerful, multi-driver file storage solution for NestJS, inspired by Laravel Flysystem.**
 
-[![npm version](https://img.shields.io/npm/v/@nestjs/fs.svg?style=flat-square)](https://www.npmjs.com/package/@nestjs/fs)
+[![npm version](https://img.shields.io/npm/v/@amirrivand/nestjs-file-storage.svg?style=flat-square)](https://www.npmjs.com/package/@amirrivand/nestjs-file-storage)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![NestJS](https://img.shields.io/badge/nestjs-ready-brightgreen.svg)](https://nestjs.com/)
 
@@ -25,9 +25,9 @@
 ## 📦 Installation
 
 ```sh
-npm install @nestjs/fs
+npm install @amirrivand/nestjs-file-storage
 # or
-yarn add @nestjs/fs
+yarn add @amirrivand/nestjs-file-storage
 ```
 
 ---
@@ -50,7 +50,7 @@ yarn add @nestjs/fs
 ## ⚡ Quick Start
 
 ```ts
-import { FileStorageModule } from '@nestjs/fs';
+import { FileStorageModule } from '@amirrivand/nestjs-file-storage';
 
 @Module({
   imports: [
@@ -72,7 +72,7 @@ export class AppModule {}
 ## ⚙️ Configuration
 
 ```ts
-import { FilenameGenerator } from '@nestjs/fs';
+import { FilenameGenerator } from '@amirrivand/nestjs-file-storage';
 
 const myGlobalFilenameGenerator: FilenameGenerator = (file, context) => {
   // Example: Add timestamp to filename
@@ -107,7 +107,7 @@ FileStorageModule.forRoot({
 
 ```ts
 import { Controller, Post } from '@nestjs/common';
-import { UploadFile, UploadedFile, FileTypePipe, StoredFile } from '@nestjs/fs';
+import { UploadFile, UploadedFile, FileTypePipe, StoredFile } from '@amirrivand/nestjs-file-storage';
 
 @Controller('files')
 export class FileController {
@@ -126,7 +126,7 @@ export class FileController {
 ### Multiple File Upload
 
 ```ts
-import { UploadFiles, UploadedFiles, FileSizePipe, StoredFile } from '@nestjs/fs';
+import { UploadFiles, UploadedFiles, FileSizePipe, StoredFile } from '@amirrivand/nestjs-file-storage';
 
 @Post('multi-upload')
 @UploadFiles('files', { disk: 's3', validators: [new FileSizePipe({ maxSize: 5 * 1024 * 1024 })] })
@@ -139,7 +139,7 @@ async uploadMany(@UploadedFiles() files: StoredFile[]) {
 ### File Download/Streaming
 
 ```ts
-import { FileResponse } from '@nestjs/fs';
+import { FileResponse } from '@amirrivand/nestjs-file-storage';
 
 @Get('download/:path')
 @FileResponse('local', ctx => ctx.switchToHttp().getRequest().params.path, true)
@@ -150,7 +150,7 @@ async download() {}
 
 ```ts
 import { Controller, Post } from '@nestjs/common';
-import { UploadFile, UploadedFile, StoredFile } from '@nestjs/fs';
+import { UploadFile, UploadedFile, StoredFile } from '@amirrivand/nestjs-file-storage';
 
 @Controller('files')
 export class FileController {
@@ -197,8 +197,8 @@ You can inject a specific disk instance directly into your providers or controll
 
 ```ts
 import { Controller } from '@nestjs/common';
-import { FileStorageService } from '@nestjs/fs';
-import { InjectDisk } from '@nestjs/fs';
+import { FileStorageService } from '@amirrivand/nestjs-file-storage';
+import { InjectDisk } from '@amirrivand/nestjs-file-storage';
 
 @Controller('files')
 export class FileController {
