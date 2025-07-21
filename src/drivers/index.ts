@@ -6,3 +6,4 @@ export * from './readonly.driver';
 export * from './s3.driver';
 export * from './scoped.driver';
 export * from './sftp.driver';
+export * from './buffer.driver';

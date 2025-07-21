@@ -109,6 +109,10 @@ export interface ScopedDiskConfig {
   prefix: string;
 }
 
+export interface BufferDiskConfig {
+  driver: 'buffer';
+}
+
 export type StorageDiskConfig =
   | LocalDiskConfig
   | S3DiskConfig
@@ -116,7 +120,8 @@ export type StorageDiskConfig =
   | FTPDiskConfig
   | SFTPDiskConfig
   | GoogleDriveDiskConfig
-  | ScopedDiskConfig;
+  | ScopedDiskConfig
+  | BufferDiskConfig;
 
 export interface StorageDisk {
   name: string;
