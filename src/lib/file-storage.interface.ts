@@ -90,6 +90,7 @@ export interface SFTPDiskConfig {
   privateKey?: string;
   passphrase?: string;
   basePublicUrl?: string;
+  root: string;
 }
 
 // Google Drive driver config

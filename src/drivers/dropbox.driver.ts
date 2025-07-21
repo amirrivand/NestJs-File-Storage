@@ -146,7 +146,7 @@ export class DropboxStorageDriver implements StorageDriver {
   async getTemporaryUrl(
     relPath: string,
     expiresIn?: number,
-    options?: { ip?: string; deviceId?: string }
+    options?: { ip?: string; deviceId?: string },
   ): Promise<string> {
     throw new Error('Temporary URLs are not supported for Dropbox driver');
   }
@@ -157,14 +157,14 @@ export class DropboxStorageDriver implements StorageDriver {
   async putTimed(
     relPath: string,
     content: Buffer | string,
-    options: { expiresAt?: Date; ttl?: number; visibility?: 'public' | 'private' }
+    options: { expiresAt?: Date; ttl?: number; visibility?: 'public' | 'private' },
   ): Promise<void> {
-    await this.put(relPath, content, options);
+    await this.put(relPath, content);
     const expiresAt = options.expiresAt
       ? options.expiresAt.getTime()
       : options.ttl
-      ? Date.now() + options.ttl * 1000
-      : undefined;
+        ? Date.now() + options.ttl * 1000
+        : undefined;
     if (expiresAt) {
       const metaPath = path.join(this.config.basePublicUrl || '', '.dropbox-expirations.json');
       let meta: Record<string, number> = {};

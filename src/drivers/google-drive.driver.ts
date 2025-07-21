@@ -209,7 +209,7 @@ export class GoogleDriveStorageDriver implements StorageDriver {
     content: Buffer | string,
     options: { expiresAt?: Date; ttl?: number; visibility?: 'public' | 'private' }
   ): Promise<void> {
-    await this.put(relPath, content, options);
+    await this.put(relPath, content);
     const expiresAt = options.expiresAt
       ? options.expiresAt.getTime()
       : options.ttl
