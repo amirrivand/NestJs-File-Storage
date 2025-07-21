@@ -137,6 +137,31 @@ async download() {}
 
 ---
 
+## 🧲 Injecting a Specific Disk
+
+You can inject a specific disk instance directly into your providers or controllers using the `@InjectDisk()` decorator. This is useful when you want to work with a specific disk (e.g., 'local', 's3') and need direct access to the `FileStorageService` for that disk.
+
+```ts
+import { Controller } from '@nestjs/common';
+import { FileStorageService } from '@nestjs/fs';
+import { InjectDisk } from '@nestjs/fs';
+
+@Controller('files')
+export class FileController {
+  constructor(
+    @InjectDisk('local')
+    private readonly fileStorageService: FileStorageService,
+  ) {}
+
+  // ... your endpoints using this.fileStorageService
+}
+```
+
+- The string passed to `@InjectDisk('local')` should match the disk name defined in your `FileStorageModule` configuration.
+- This allows you to use all methods of `FileStorageService` for the specified disk.
+
+---
+
 ## 🧩 Advanced Patterns
 
 - **Async Module Registration**: `FileStorageModule.forRootAsync({ ... })`

@@ -10,10 +10,7 @@ export class FileTypePipe implements PipeTransform {
   constructor(private readonly options: FileTypePipeOptions) {}
 
   transform(file: Express.Multer.File) {
-    if (
-      this.options.allowedMimeTypes &&
-      !this.options.allowedMimeTypes.includes(file.mimetype)
-    ) {
+    if (this.options.allowedMimeTypes && !this.options.allowedMimeTypes.includes(file.mimetype)) {
       throw new BadRequestException(`Invalid file type: ${file.mimetype}`);
     }
     if (this.options.allowedExtensions) {

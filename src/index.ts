@@ -8,12 +8,32 @@ export * from './lib/file-storage.interface';
 export * from './types/storage-config.type';
 export * from './types/stored-file.type';
 // Drivers
-export * as drivers from './drivers';
+export * from './drivers/dropbox.driver';
+export * from './drivers/ftp.driver';
+export * from './drivers/google-drive.driver';
+export * from './drivers/local.driver';
+export * from './drivers/readonly.driver';
+export * from './drivers/s3.driver';
+export * from './drivers/scoped.driver';
+export * from './drivers/sftp.driver';
 // NestJS helpers
-export * as decorators from './decorators';
-export * as pipes from './pipes';
-export * as interceptors from './interceptors';
-export * as filters from './filters';
-export * as guards from './guards';
-export * as providers from './providers';
-export * as dtos from './dtos';
+export * from './decorators/file-response.decorator';
+export * from './decorators/inject-disk.decorator';
+export * from './decorators/upload-file.decorator';
+export * from './decorators/upload-files.decorator';
+// Pipes
+export * from './pipes/file-to-disk.pipe';
+export * from './pipes/file-size.pipe';
+export * from './pipes/file-type.pipe';
+export * from './pipes/multi-file.pipe';
+// Interceptors
+export * from './interceptors/file-storage.interceptor';
+// Filters
+export * from './filters/file-storage-exception.filter';
+// Guards
+export * from './guards/file-permission.guard';
+// Providers
+export * from './providers/dynamic-disk.provider';
+// Dtos
+export * from './dtos/file-download.dto';
+export * from './dtos/file-upload.dto';

@@ -1,12 +1,12 @@
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { DropboxStorageDriver } from '../drivers/dropbox.driver';
 import { FTPStorageDriver } from '../drivers/ftp.driver';
+import { GoogleDriveStorageDriver } from '../drivers/google-drive.driver';
 import { LocalStorageDriver } from '../drivers/local.driver';
 import { S3StorageDriver } from '../drivers/s3.driver';
 import { SFTPStorageDriver } from '../drivers/sftp.driver';
-import { DropboxStorageDriver } from '../drivers/dropbox.driver';
-import { GoogleDriveStorageDriver } from '../drivers/google-drive.driver';
-import { StorageDisk, StorageDriver } from './file-storage.interface';
 import { StorageConfig } from '../types/storage-config.type';
+import { StorageDisk, StorageDriver } from './file-storage.interface';
 
 const DRIVER_MAP: Record<string, any> = {
   local: LocalStorageDriver,
@@ -22,7 +22,7 @@ export class FileStorageService {
   private disks: Map<string, StorageDisk> = new Map();
   private defaultDisk: string = 'default';
 
-  constructor(@Optional() @Inject('STORAGE_CONFIG') config?: StorageConfig) {
+  constructor(@Inject('STORAGE_CONFIG') config?: StorageConfig) {
     if (config) {
       this.defaultDisk = config.default;
       for (const [name, diskConfig] of Object.entries(config.disks)) {
