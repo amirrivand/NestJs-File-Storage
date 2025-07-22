@@ -4,15 +4,7 @@ import { StorageConfig } from '../types/storage-config.type';
 import { FileStorageService } from './file-storage.service';
 
 /**
- * Usage:
- * FileStorageModule.forRootAsync({
- *   imports: [ConfigModule],
- *   inject: [ConfigService],
- *   useFactory: async (configService: ConfigService) => ({
- *     default: 's3',
- *     disks: await configService.getDisksFromDb(),
- *   }),
- * })
+ * Options for asynchronously configuring the FileStorageModule.
  */
 export interface FileStorageModuleAsyncOptions {
   isGlobal?: boolean;
@@ -24,8 +16,17 @@ export interface FileStorageModuleAsyncOptions {
   providers?: Provider[];
 }
 
+/**
+ * NestJS module for file storage integration.
+ * Provides static methods for synchronous and asynchronous configuration.
+ */
 @Module({})
 export class FileStorageModule {
+  /**
+   * Configure the module synchronously with a static config object.
+   * @param config Storage configuration and optional global flag.
+   * @returns A dynamic module for NestJS.
+   */
   static forRoot({ isGlobal, ...config }: StorageConfig & { isGlobal?: boolean }): DynamicModule {
     const diskProviders: Provider[] = Object.keys(config.disks).map((diskName) =>
       createDiskProvider(diskName, (storage: FileStorageService) => storage.disk(diskName)),
@@ -42,6 +43,11 @@ export class FileStorageModule {
     };
   }
 
+  /**
+   * Configure the module asynchronously using a factory or class.
+   * @param options Async configuration options.
+   * @returns A dynamic module for NestJS.
+   */
   static forRootAsync(options: FileStorageModuleAsyncOptions): DynamicModule {
     const asyncProvider: Provider = options.useFactory
       ? {

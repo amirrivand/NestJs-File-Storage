@@ -19,12 +19,20 @@ const DRIVER_MAP = {
   scoped: ScopedStorageDriver,
 };
 
+/**
+ * Service for managing file storage across multiple disks and drivers.
+ * Provides convenience methods for file operations and disk management.
+ */
 @Injectable()
 export class FileStorageService {
   public readonly config?: StorageConfig;
   private disks: Map<string, StorageDisk> = new Map();
   private defaultDisk: string = 'default';
 
+  /**
+   * Create a new FileStorageService.
+   * @param config Optional storage configuration.
+   */
   constructor(@Inject('STORAGE_CONFIG') config?: StorageConfig) {
     this.config = config;
     if (config) {
@@ -69,6 +77,11 @@ export class FileStorageService {
     }
   }
 
+  /**
+   * Get the storage driver for a given disk name, or the default disk if not specified.
+   * @param name Optional disk name.
+   * @returns The storage driver instance.
+   */
   disk(name?: string): StorageDriver {
     const diskName = name || this.defaultDisk;
     const disk = this.disks.get(diskName);
@@ -77,6 +90,12 @@ export class FileStorageService {
   }
 
   // Convenience methods for default disk
+  /**
+   * Store a file on the default disk.
+   * @param path Path to store the file at.
+   * @param content File content as Buffer or string.
+   * @param options Optional visibility settings.
+   */
   async put(
     path: string,
     content: Buffer | string,
@@ -84,34 +103,79 @@ export class FileStorageService {
   ) {
     return this.disk().put(path, content, options);
   }
+  /**
+   * Retrieve a file from the default disk.
+   * @param path Path of the file to retrieve.
+   */
   async get(path: string) {
     return this.disk().get(path);
   }
+  /**
+   * Delete a file from the default disk.
+   * @param path Path of the file to delete.
+   */
   async delete(path: string) {
     return this.disk().delete(path);
   }
+  /**
+   * Check if a file exists on the default disk.
+   * @param path Path to check.
+   */
   async exists(path: string) {
     return this.disk().exists(path);
   }
+  /**
+   * Copy a file on the default disk.
+   * @param src Source path.
+   * @param dest Destination path.
+   */
   async copy(src: string, dest: string) {
     return this.disk().copy(src, dest);
   }
+  /**
+   * Move a file on the default disk.
+   * @param src Source path.
+   * @param dest Destination path.
+   */
   async move(src: string, dest: string) {
     return this.disk().move(src, dest);
   }
+  /**
+   * Create a directory on the default disk.
+   * @param path Directory path.
+   */
   async makeDirectory(path: string) {
     return this.disk().makeDirectory?.(path);
   }
+  /**
+   * Delete a directory on the default disk.
+   * @param path Directory path.
+   */
   async deleteDirectory(path: string) {
     return this.disk().deleteDirectory?.(path);
   }
+  /**
+   * Get metadata for a file on the default disk.
+   * @param path Path of the file.
+   */
   async getMetadata(path: string) {
     return this.disk().getMetadata?.(path);
   }
+  /**
+   * Get a public URL for a file on the default disk.
+   * @param path Path of the file.
+   */
   async url(path: string) {
     return this.disk().url?.(path);
   }
 
+  /**
+   * Get a temporary URL for a file on a given disk, if supported.
+   * @param path Path of the file.
+   * @param expiresIn Expiration in seconds.
+   * @param options Additional options (IP/device).
+   * @param disk Optional disk name.
+   */
   async getTemporaryUrl(path: string, expiresIn?: number, options?: { ip?: string; deviceId?: string }, disk?: string) {
     const driver = this.disk(disk);
     if (typeof driver.getTemporaryUrl === 'function') {
@@ -120,6 +184,13 @@ export class FileStorageService {
     throw new Error('Temporary URL is not supported for this disk');
   }
 
+  /**
+   * Store a file with an expiration time on a given disk, if supported.
+   * @param path Path to store the file at.
+   * @param content File content as Buffer or string.
+   * @param options Expiration and visibility options.
+   * @param disk Optional disk name.
+   */
   async putTimed(
     path: string,
     content: Buffer | string,
@@ -134,6 +205,11 @@ export class FileStorageService {
     return driver.put(path, content, options);
   }
 
+  /**
+   * Delete all expired files on a given disk, if supported.
+   * @param disk Optional disk name.
+   * @returns Number of deleted files.
+   */
   async deleteExpiredFiles(disk?: string): Promise<number> {
     const driver = this.disk(disk);
     if (typeof driver.deleteExpiredFiles === 'function') {
@@ -143,6 +219,13 @@ export class FileStorageService {
     return 0;
   }
 
+  /**
+   * Store a file stream on a given disk, if supported.
+   * @param path Path to store the file at.
+   * @param stream Readable stream of file content.
+   * @param options Optional visibility settings.
+   * @param disk Optional disk name.
+   */
   async putStream(
     path: string,
     stream: import('stream').Readable,

@@ -5,6 +5,10 @@ import * as path from 'path';
 import { Readable } from 'stream';
 import { FileMetadata, LocalDiskConfig, StorageDriver } from '../lib/file-storage.interface';
 
+/**
+ * Storage driver for local filesystem operations.
+ * Implements file operations using Node.js fs and path modules.
+ */
 export class LocalStorageDriver implements StorageDriver {
   private basePublicUrl: string;
   private static tempLinks: Map<
@@ -12,19 +16,29 @@ export class LocalStorageDriver implements StorageDriver {
     { path: string; expiresAt: number; ip?: string; deviceId?: string }
   > = new Map();
 
+  /**
+   * Create a new LocalStorageDriver.
+   * @param config Local disk configuration.
+   */
   constructor(private config: LocalDiskConfig) {
     this.basePublicUrl = config.basePublicUrl || '';
   }
 
   /**
-   * Merge the path with root path and if the path is absolute, it will return the path as is
-   * @param relPath - The relative path to merge with the root path
-   * @returns The full path
+   * Merge the path with root path and if the path is absolute, it will return the path as is.
+   * @param relPath The relative path to merge with the root path.
+   * @returns The full path.
    */
   private fullPath(relPath: string): string {
     return relPath;
   }
 
+  /**
+   * List files in a directory, optionally recursively.
+   * @param dir Directory path.
+   * @param recursive Whether to list recursively.
+   * @returns Array of file paths.
+   */
   async listFiles(dir = '', recursive = true): Promise<string[]> {
     const dirPath = this.fullPath(dir);
     let results: string[] = [];
@@ -45,6 +59,12 @@ export class LocalStorageDriver implements StorageDriver {
     return results;
   }
 
+  /**
+   * List directories in a directory, optionally recursively.
+   * @param dir Directory path.
+   * @param recursive Whether to list recursively.
+   * @returns Array of directory paths.
+   */
   async listDirectories(dir = '', recursive = true): Promise<string[]> {
     const dirPath = this.fullPath(dir);
     let results: string[] = [];
@@ -61,6 +81,12 @@ export class LocalStorageDriver implements StorageDriver {
     return results;
   }
 
+  /**
+   * Store a file at the given path.
+   * @param relPath Path to store the file at.
+   * @param content File content as Buffer or string.
+   * @param options Optional visibility settings.
+   */
   async put(
     relPath: string,
     content: Buffer | string,
@@ -74,6 +100,12 @@ export class LocalStorageDriver implements StorageDriver {
     }
   }
 
+  /**
+   * Store a file stream at the given path.
+   * @param relPath Path to store the file at.
+   * @param stream Readable stream of file content.
+   * @param options Optional visibility settings.
+   */
   async putStream(
     relPath: string,
     stream: Readable,
@@ -92,12 +124,22 @@ export class LocalStorageDriver implements StorageDriver {
     }
   }
 
+  /**
+   * Set the visibility of a file.
+   * @param relPath Path of the file.
+   * @param visibility Visibility setting.
+   */
   async setVisibility(relPath: string, visibility: 'public' | 'private'): Promise<void> {
     const filePath = this.fullPath(relPath);
     const mode = visibility === 'public' ? 0o644 : 0o600;
     await fs.chmod(filePath, mode);
   }
 
+  /**
+   * Get the visibility of a file.
+   * @param relPath Path of the file.
+   * @returns Visibility setting.
+   */
   async getVisibility(relPath: string): Promise<'public' | 'private'> {
     const filePath = this.fullPath(relPath);
     const stats = await fs.stat(filePath);
@@ -107,14 +149,28 @@ export class LocalStorageDriver implements StorageDriver {
     return 'private';
   }
 
+  /**
+   * Retrieve a file as a Buffer.
+   * @param relPath Path of the file to retrieve.
+   * @returns File content as Buffer.
+   */
   async get(relPath: string): Promise<Buffer> {
     return fs.readFile(this.fullPath(relPath));
   }
 
+  /**
+   * Delete a file at the given path.
+   * @param relPath Path of the file to delete.
+   */
   async delete(relPath: string): Promise<void> {
     await fs.unlink(this.fullPath(relPath));
   }
 
+  /**
+   * Check if a file exists at the given path.
+   * @param relPath Path to check.
+   * @returns True if file exists, false otherwise.
+   */
   async exists(relPath: string): Promise<boolean> {
     try {
       await fs.access(this.fullPath(relPath), constants.F_OK);
@@ -124,22 +180,45 @@ export class LocalStorageDriver implements StorageDriver {
     }
   }
 
+  /**
+   * Copy a file from src to dest.
+   * @param src Source path.
+   * @param dest Destination path.
+   */
   async copy(src: string, dest: string): Promise<void> {
     await fs.copyFile(this.fullPath(src), this.fullPath(dest));
   }
 
+  /**
+   * Move a file from src to dest.
+   * @param src Source path.
+   * @param dest Destination path.
+   */
   async move(src: string, dest: string): Promise<void> {
     await fs.rename(this.fullPath(src), this.fullPath(dest));
   }
 
+  /**
+   * Create a directory at the given path.
+   * @param relPath Directory path.
+   */
   async makeDirectory(relPath: string): Promise<void> {
     await fs.mkdir(this.fullPath(relPath), { recursive: true });
   }
 
+  /**
+   * Delete a directory at the given path.
+   * @param relPath Directory path.
+   */
   async deleteDirectory(relPath: string): Promise<void> {
     await fs.rm(this.fullPath(relPath), { recursive: true, force: true });
   }
 
+  /**
+   * Get metadata for a file.
+   * @param relPath Path of the file.
+   * @returns File metadata.
+   */
   async getMetadata(relPath: string): Promise<FileMetadata> {
     const stats = await fs.stat(this.fullPath(relPath));
     return {
@@ -151,6 +230,11 @@ export class LocalStorageDriver implements StorageDriver {
     };
   }
 
+  /**
+   * Get a public URL for a file, if supported.
+   * @param relPath Path of the file.
+   * @returns Public URL or file path.
+   */
   async url(relPath: string): Promise<string> {
     if (this.basePublicUrl) {
       return `${this.basePublicUrl}/${relPath}`;
@@ -158,10 +242,20 @@ export class LocalStorageDriver implements StorageDriver {
     return relPath;
   }
 
+  /**
+   * Create a readable stream for a file.
+   * @param relPath Path of the file.
+   * @returns Readable stream.
+   */
   createReadStream(relPath: string): Readable {
     return createReadStream(this.fullPath(relPath));
   }
 
+  /**
+   * Prepend content to a file.
+   * @param relPath Path of the file.
+   * @param content Content to prepend.
+   */
   async prepend(relPath: string, content: Buffer | string): Promise<void> {
     const filePath = this.fullPath(relPath);
     let existing = '';
@@ -176,6 +270,11 @@ export class LocalStorageDriver implements StorageDriver {
     await fs.writeFile(filePath, newContent);
   }
 
+  /**
+   * Append content to a file.
+   * @param relPath Path of the file.
+   * @param content Content to append.
+   */
   async append(relPath: string, content: Buffer | string): Promise<void> {
     const filePath = this.fullPath(relPath);
     await fs.appendFile(filePath, content);
@@ -201,6 +300,12 @@ export class LocalStorageDriver implements StorageDriver {
     return `${base}/temp?token=${token}`;
   }
 
+  /**
+   * Validate a temporary token for file access.
+   * @param token The token to validate.
+   * @param req Optional HTTP request for IP/device validation.
+   * @returns The file path if valid, otherwise null.
+   */
   static validateTempToken(token: string, req?: IncomingMessage): string | null {
     const entry = LocalStorageDriver.tempLinks.get(token);
     if (!entry) return null;
@@ -215,6 +320,9 @@ export class LocalStorageDriver implements StorageDriver {
 
   /**
    * Store a file with expiration metadata (sidecar .meta.json file).
+   * @param relPath Path to store the file at.
+   * @param content File content as Buffer or string.
+   * @param options Expiration and visibility options.
    */
   async putTimed(
     relPath: string,
@@ -235,6 +343,7 @@ export class LocalStorageDriver implements StorageDriver {
 
   /**
    * Delete all expired files (based on .meta.json files). Returns number of deleted files.
+   * @returns Number of deleted files.
    */
   async deleteExpiredFiles(): Promise<number> {
     const files = await this.listFiles('', true);

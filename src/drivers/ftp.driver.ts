@@ -5,9 +5,17 @@ import * as path from 'path';
 import { PassThrough, Readable } from 'stream';
 import { FTPDiskConfig, StorageDriver, FileMetadata } from '../lib/file-storage.interface';
 
+/**
+ * Storage driver for FTP operations using the basic-ftp library.
+ * Implements file operations for FTP servers.
+ */
 export class FTPStorageDriver implements StorageDriver {
   private basePublicUrl: string;
 
+  /**
+   * Create a new FTPStorageDriver.
+   * @param config FTP disk configuration.
+   */
   constructor(private config: FTPDiskConfig) {
     this.basePublicUrl = config.basePublicUrl || '';
   }
@@ -32,10 +40,15 @@ export class FTPStorageDriver implements StorageDriver {
     return path.join(os.tmpdir(), `ftp-tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   }
 
+  /**
+   * Store a file at the given path on the FTP server.
+   * @param relPath Path to store the file at.
+   * @param content File content as Buffer or string.
+   * @param _options Optional visibility settings (not used).
+   */
   async put(
     relPath: string,
     content: Buffer | string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _options?: { visibility?: 'public' | 'private' },
   ): Promise<void> {
     const tempFile = await this.getTempFilePath();
@@ -49,6 +62,11 @@ export class FTPStorageDriver implements StorageDriver {
     }
   }
 
+  /**
+   * Retrieve a file as a Buffer from the FTP server.
+   * @param relPath Path of the file to retrieve.
+   * @returns File content as Buffer.
+   */
   async get(relPath: string): Promise<Buffer> {
     const tempFile = await this.getTempFilePath();
     try {
@@ -61,10 +79,19 @@ export class FTPStorageDriver implements StorageDriver {
     }
   }
 
+  /**
+   * Delete a file at the given path from the FTP server.
+   * @param relPath Path of the file to delete.
+   */
   async delete(relPath: string): Promise<void> {
     await this.withClient((client) => client.remove(relPath));
   }
 
+  /**
+   * Check if a file exists at the given path on the FTP server.
+   * @param relPath Path to check.
+   * @returns True if file exists, false otherwise.
+   */
   async exists(relPath: string): Promise<boolean> {
     return this.withClient(async (client) => {
       try {
@@ -76,23 +103,46 @@ export class FTPStorageDriver implements StorageDriver {
     });
   }
 
+  /**
+   * Copy a file from src to dest on the FTP server.
+   * @param src Source path.
+   * @param dest Destination path.
+   */
   async copy(src: string, dest: string): Promise<void> {
     const data = await this.get(src);
     await this.put(dest, data);
   }
 
+  /**
+   * Move a file from src to dest on the FTP server.
+   * @param src Source path.
+   * @param dest Destination path.
+   */
   async move(src: string, dest: string): Promise<void> {
     await this.withClient((client) => client.rename(src, dest));
   }
 
+  /**
+   * Create a directory at the given path on the FTP server.
+   * @param relPath Directory path.
+   */
   async makeDirectory(relPath: string): Promise<void> {
     await this.withClient((client) => client.ensureDir(relPath));
   }
 
+  /**
+   * Delete a directory at the given path on the FTP server.
+   * @param relPath Directory path.
+   */
   async deleteDirectory(relPath: string): Promise<void> {
     await this.withClient((client) => client.removeDir(relPath));
   }
 
+  /**
+   * Get metadata for a file on the FTP server.
+   * @param relPath Path of the file.
+   * @returns File metadata.
+   */
   async getMetadata(relPath: string): Promise<FileMetadata> {
     return this.withClient(async (client) => {
       const list = await client.list(path.dirname(relPath));
@@ -107,6 +157,12 @@ export class FTPStorageDriver implements StorageDriver {
     });
   }
 
+  /**
+   * List files in a directory on the FTP server, optionally recursively.
+   * @param dir Directory path.
+   * @param recursive Whether to list recursively.
+   * @returns Array of file paths.
+   */
   async listFiles(dir = '', recursive = true): Promise<string[]> {
     return this.withClient(async (client) => {
       const results: string[] = [];
@@ -126,6 +182,12 @@ export class FTPStorageDriver implements StorageDriver {
     });
   }
 
+  /**
+   * List directories in a directory on the FTP server, optionally recursively.
+   * @param dir Directory path.
+   * @param recursive Whether to list recursively.
+   * @returns Array of directory paths.
+   */
   async listDirectories(dir = '', recursive = true): Promise<string[]> {
     return this.withClient(async (client) => {
       const results: string[] = [];
@@ -144,6 +206,11 @@ export class FTPStorageDriver implements StorageDriver {
     });
   }
 
+  /**
+   * Create a readable stream for a file on the FTP server.
+   * @param relPath Path of the file.
+   * @returns Readable stream.
+   */
   createReadStream(relPath: string): Readable {
     const pass = new PassThrough();
     this.withClient(async (client) => {
@@ -152,6 +219,11 @@ export class FTPStorageDriver implements StorageDriver {
     return pass;
   }
 
+  /**
+   * Prepend content to a file on the FTP server.
+   * @param relPath Path of the file.
+   * @param content Content to prepend.
+   */
   async prepend(relPath: string, content: Buffer | string): Promise<void> {
     let existing: Buffer = Buffer.from('');
     try {
@@ -163,6 +235,11 @@ export class FTPStorageDriver implements StorageDriver {
     await this.put(relPath, newContent);
   }
 
+  /**
+   * Append content to a file on the FTP server.
+   * @param relPath Path of the file.
+   * @param content Content to append.
+   */
   async append(relPath: string, content: Buffer | string): Promise<void> {
     let existing: Buffer = Buffer.from('');
     try {
@@ -174,6 +251,11 @@ export class FTPStorageDriver implements StorageDriver {
     await this.put(relPath, newContent);
   }
 
+  /**
+   * Get a public URL for a file, if supported.
+   * @param relPath Path of the file.
+   * @returns Public URL or file path.
+   */
   async url(relPath: string): Promise<string> {
     if (this.basePublicUrl) {
       return `${this.basePublicUrl}/${relPath}`;
@@ -183,6 +265,8 @@ export class FTPStorageDriver implements StorageDriver {
 
   /**
    * Temporary URLs are not supported for FTP driver.
+   * @param relPath File path.
+   * @throws Error always.
    */
   async getTemporaryUrl(
     relPath: string,
@@ -194,6 +278,9 @@ export class FTPStorageDriver implements StorageDriver {
 
   /**
    * Store a file with expiration metadata in a central .ftp-expirations.json file.
+   * @param relPath Path to store the file at.
+   * @param content File content as Buffer or string.
+   * @param options Expiration and visibility options.
    */
   async putTimed(
     relPath: string,
@@ -219,6 +306,7 @@ export class FTPStorageDriver implements StorageDriver {
 
   /**
    * Delete all expired files (based on .ftp-expirations.json). Returns number of deleted files.
+   * @returns Number of deleted files.
    */
   async deleteExpiredFiles(): Promise<number> {
     const metaPath = path.join(this.config.root, '.ftp-expirations.json');
@@ -241,6 +329,12 @@ export class FTPStorageDriver implements StorageDriver {
     return deleted;
   }
 
+  /**
+   * Store a file stream at the given path on the FTP server.
+   * @param relPath Path to store the file at.
+   * @param stream Readable stream of file content.
+   * @param options Optional visibility settings.
+   */
   async putStream(
     relPath: string,
     stream: Readable,

@@ -10,6 +10,12 @@ import { FileUploadInterceptorMixin, FileValidationRule } from './upload-file.de
 
 export const FILES_UPLOAD_OPTIONS_KEY = 'filesUploadOptions';
 
+/**
+ * Decorator for uploading multiple files. Applies file upload options and interceptor.
+ * @param fieldName The field name for the files input.
+ * @param options Additional upload options (except fieldName and isArray).
+ * @returns A decorator to use on controller methods.
+ */
 export function UploadFiles(
   fieldName: string,
   options: Omit<FileUploadInterceptorOptions, 'fieldName' | 'isArray'>,
@@ -21,6 +27,12 @@ export function UploadFiles(
   );
 }
 
+/**
+ * Parameter decorator to access the uploaded files from the request.
+ * @param data Not used.
+ * @param ctx Execution context.
+ * @returns The uploaded files from the request.
+ */
 export const UploadedFiles = createParamDecorator((data, ctx: ExecutionContext) => {
   const req = ctx.switchToHttp().getRequest();
   return req.uploadedFiles;

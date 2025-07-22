@@ -1,6 +1,12 @@
 import { Provider } from '@nestjs/common';
 import { FileStorageService } from '../lib/file-storage.service';
 
+/**
+ * Creates a NestJS provider for a specific file storage disk.
+ * @param diskName The name of the disk.
+ * @param factory Factory function to get the disk from FileStorageService.
+ * @returns A provider object for NestJS DI.
+ */
 export function createDiskProvider(
   diskName: string,
   factory: (storage: FileStorageService) => any,

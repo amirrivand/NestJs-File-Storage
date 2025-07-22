@@ -2,6 +2,13 @@ import { ExecutionContext } from '@nestjs/common';
 import { Response } from 'express';
 import { FileStorageService } from '../lib/file-storage.service';
 
+/**
+ * Decorator to send a file as a response from a controller method.
+ * @param disk The disk name to use for file retrieval.
+ * @param getPath Function to extract the file path from the execution context.
+ * @param download Whether to force file download (Content-Disposition: attachment).
+ * @returns A method decorator that pipes the file stream to the response.
+ */
 export function FileResponse(
   disk: string,
   getPath: (ctx: ExecutionContext) => string,

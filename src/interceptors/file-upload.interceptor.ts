@@ -19,6 +19,9 @@ import { FileStorageService } from '../lib/file-storage.service';
 
 const unlinkAsync = promisify(unlink);
 
+/**
+ * Options for configuring the file upload interceptor.
+ */
 export interface FileUploadInterceptorOptions {
   fieldName: string;
   disk: string;
@@ -34,10 +37,18 @@ export interface FileUploadInterceptorOptions {
     | ((file: Express.Multer.File, context: ExecutionContext) => string | Promise<string>);
 }
 
+/**
+ * Interceptor for handling file uploads using multer and storing them via FileStorageService.
+ */
 @Injectable()
 export class FileUploadInterceptor implements NestInterceptor {
   private upload: ReturnType<typeof multer>;
 
+  /**
+   * Create a new FileUploadInterceptor.
+   * @param storage The file storage service.
+   * @param options File upload interceptor options.
+   */
   constructor(
     private readonly storage: FileStorageService,
     private readonly options: FileUploadInterceptorOptions,
@@ -54,6 +65,12 @@ export class FileUploadInterceptor implements NestInterceptor {
     });
   }
 
+  /**
+   * Intercepts file upload requests, validates, and stores files.
+   * @param context The execution context.
+   * @param next The call handler.
+   * @returns An observable for the next handler.
+   */
   async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<any>> {
     const req: Request = context.switchToHttp().getRequest();
     const res: Response = context.switchToHttp().getResponse();

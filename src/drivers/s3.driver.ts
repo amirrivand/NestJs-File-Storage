@@ -16,11 +16,19 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { S3DiskConfig, StorageDriver, FileMetadata } from '../lib/file-storage.interface';
 import { PassThrough, Readable } from 'stream';
 
+/**
+ * Storage driver for AWS S3 operations using the AWS SDK.
+ * Implements file operations for S3-compatible cloud storage.
+ */
 export class S3StorageDriver implements StorageDriver {
   private s3Client: S3Client;
   private bucket: string;
   private cdnBaseUrl: string;
 
+  /**
+   * Create a new S3StorageDriver.
+   * @param config S3 disk configuration.
+   */
   constructor(private config: S3DiskConfig) {
     this.s3Client = new S3Client({
       credentials: {
@@ -35,6 +43,12 @@ export class S3StorageDriver implements StorageDriver {
     this.cdnBaseUrl = config.cdnBaseUrl || '';
   }
 
+  /**
+   * Store a file at the given path in S3.
+   * @param path Path to store the file at.
+   * @param content File content as Buffer or string.
+   * @param options Optional visibility settings.
+   */
   async put(
     path: string,
     content: Buffer | string,
@@ -50,6 +64,12 @@ export class S3StorageDriver implements StorageDriver {
     );
   }
 
+  /**
+   * Store a file stream at the given path in S3.
+   * @param path Path to store the file at.
+   * @param stream Readable stream of file content.
+   * @param options Optional visibility settings.
+   */
   async putStream(
     path: string,
     stream: Readable,
@@ -65,6 +85,11 @@ export class S3StorageDriver implements StorageDriver {
     );
   }
 
+  /**
+   * Set the visibility of a file in S3.
+   * @param path Path of the file.
+   * @param visibility Visibility setting.
+   */
   async setVisibility(path: string, visibility: 'public' | 'private'): Promise<void> {
     await this.s3Client.send(
       new PutObjectCommand({
@@ -76,6 +101,11 @@ export class S3StorageDriver implements StorageDriver {
     );
   }
 
+  /**
+   * Get the visibility of a file in S3.
+   * @param path Path of the file.
+   * @returns Visibility setting.
+   */
   async getVisibility(path: string): Promise<'public' | 'private' | undefined> {
     const response = await this.s3Client.send(
       new GetObjectAclCommand({
@@ -95,6 +125,11 @@ export class S3StorageDriver implements StorageDriver {
     return 'private';
   }
 
+  /**
+   * Retrieve a file as a Buffer from S3.
+   * @param path Path of the file to retrieve.
+   * @returns File content as Buffer.
+   */
   async get(path: string): Promise<Buffer> {
     const response = await this.s3Client.send(
       new GetObjectCommand({
@@ -110,6 +145,10 @@ export class S3StorageDriver implements StorageDriver {
     return Buffer.concat(chunks);
   }
 
+  /**
+   * Delete a file at the given path from S3.
+   * @param path Path of the file to delete.
+   */
   async delete(path: string): Promise<void> {
     await this.s3Client.send(
       new DeleteObjectCommand({
@@ -119,6 +158,11 @@ export class S3StorageDriver implements StorageDriver {
     );
   }
 
+  /**
+   * Check if a file exists at the given path in S3.
+   * @param path Path to check.
+   * @returns True if file exists, false otherwise.
+   */
   async exists(path: string): Promise<boolean> {
     try {
       await this.s3Client.send(
@@ -133,6 +177,11 @@ export class S3StorageDriver implements StorageDriver {
     }
   }
 
+  /**
+   * Copy a file from src to dest in S3.
+   * @param src Source path.
+   * @param dest Destination path.
+   */
   async copy(src: string, dest: string): Promise<void> {
     await this.s3Client.send(
       new CopyObjectCommand({
@@ -143,16 +192,29 @@ export class S3StorageDriver implements StorageDriver {
     );
   }
 
+  /**
+   * Move a file from src to dest in S3.
+   * @param src Source path.
+   * @param dest Destination path.
+   */
   async move(src: string, dest: string): Promise<void> {
     await this.copy(src, dest);
     await this.delete(src);
   }
 
+  /**
+   * Make a directory in S3 (no-op, S3 is flat).
+   * @returns void
+   */
   async makeDirectory(): Promise<void> {
     // S3 is flat, but we can create a placeholder object
     // Not required for S3, so this is a no-op
   }
 
+  /**
+   * Delete a directory in S3 by removing all files with the given prefix.
+   * @param prefix Directory prefix.
+   */
   async deleteDirectory(prefix: string): Promise<void> {
     const files = await this.listFiles(prefix);
     for (const file of files) {
@@ -160,6 +222,11 @@ export class S3StorageDriver implements StorageDriver {
     }
   }
 
+  /**
+   * Get metadata for a file in S3.
+   * @param path Path of the file.
+   * @returns File metadata.
+   */
   async getMetadata(path: string): Promise<FileMetadata> {
     const response = await this.s3Client.send(
       new HeadObjectCommand({
@@ -176,6 +243,11 @@ export class S3StorageDriver implements StorageDriver {
     };
   }
 
+  /**
+   * List files in a directory in S3, optionally recursively.
+   * @param prefix Directory prefix.
+   * @returns Array of file paths.
+   */
   async listFiles(prefix?: string): Promise<string[]> {
     const response = await this.s3Client.send(
       new ListObjectsV2Command({
@@ -190,6 +262,12 @@ export class S3StorageDriver implements StorageDriver {
     );
   }
 
+  /**
+   * List directories in a directory in S3, optionally recursively.
+   * @param prefix Directory prefix.
+   * @param recursive Whether to list recursively.
+   * @returns Array of directory prefixes.
+   */
   async listDirectories(prefix = '', recursive = true): Promise<string[]> {
     const response = await this.s3Client.send(
       new ListObjectsV2Command({
@@ -211,12 +289,18 @@ export class S3StorageDriver implements StorageDriver {
     return dirs;
   }
 
+  /**
+   * Get a public URL for a file, if supported.
+   * @param path Path of the file.
+   * @returns Public URL or file path.
+   */
   async url(path: string): Promise<string> {
     return this.cdnBaseUrl ? `${this.cdnBaseUrl}/${path}` : path;
   }
 
   /**
-   * Generate a temporary (signed) URL for an S3 file. Only expiration is supported; IP/device restriction is not supported by AWS S3.
+   * Generate a temporary (signed) URL for an S3 file.
+   * Only expiration is supported; IP/device restriction is not supported by AWS S3.
    * @param path File path
    * @param expiresIn Expiration in seconds (default: 3600)
    * @param options Optional { ip, deviceId } (not supported)
@@ -237,6 +321,11 @@ export class S3StorageDriver implements StorageDriver {
     return getSignedUrl(this.s3Client, command, { expiresIn });
   }
 
+  /**
+   * Prepend content to a file in S3.
+   * @param path Path of the file.
+   * @param content Content to prepend.
+   */
   async prepend(path: string, content: Buffer | string): Promise<void> {
     let existing: Buffer = Buffer.from('');
     try {
@@ -253,6 +342,11 @@ export class S3StorageDriver implements StorageDriver {
     await this.put(path, newContent);
   }
 
+  /**
+   * Append content to a file in S3.
+   * @param path Path of the file.
+   * @param content Content to append.
+   */
   async append(path: string, content: Buffer | string): Promise<void> {
     let existing: Buffer = Buffer.from('');
     try {
@@ -269,6 +363,11 @@ export class S3StorageDriver implements StorageDriver {
     await this.put(path, newContent);
   }
 
+  /**
+   * Create a readable stream for a file in S3.
+   * @param path Path of the file.
+   * @returns Readable stream.
+   */
   createReadStream(path: string): Readable {
     const pass = new PassThrough();
     this.s3Client
@@ -290,6 +389,9 @@ export class S3StorageDriver implements StorageDriver {
 
   /**
    * Store a file with expiration metadata (S3 object tag 'expiresAt').
+   * @param path Path to store the file at.
+   * @param content File content as Buffer or string.
+   * @param options Expiration and visibility options.
    */
   async putTimed(
     path: string,
@@ -316,6 +418,7 @@ export class S3StorageDriver implements StorageDriver {
 
   /**
    * Delete all expired files (based on S3 object tag 'expiresAt'). Returns number of deleted files.
+   * @returns Number of deleted files.
    */
   async deleteExpiredFiles(): Promise<number> {
     let deleted = 0;

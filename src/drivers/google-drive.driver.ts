@@ -5,11 +5,19 @@ import { PassThrough, Readable } from 'stream';
 import { GoogleDriveDiskConfig, StorageDriver, FileMetadata } from '../lib/file-storage.interface';
 import * as fs from 'fs';
 
+/**
+ * Storage driver for Google Drive operations using the googleapis SDK.
+ * Implements file operations for Google Drive cloud storage.
+ */
 export class GoogleDriveStorageDriver implements StorageDriver {
   private drive: drive_v3.Drive;
   private folderId: string;
   private basePublicUrl: string;
 
+  /**
+   * Create a new GoogleDriveStorageDriver.
+   * @param config Google Drive disk configuration.
+   */
   constructor(private config: GoogleDriveDiskConfig) {
     const auth = new JWT({
       email: config.client_email,
@@ -29,6 +37,11 @@ export class GoogleDriveStorageDriver implements StorageDriver {
     return file?.id || null;
   }
 
+  /**
+   * Store a file at the given path in Google Drive.
+   * @param filePath Path to store the file at.
+   * @param content File content as Buffer or string.
+   */
   async put(filePath: string, content: Buffer | string): Promise<void> {
     const fileId = await this.findFileId(filePath);
     const media = {
@@ -53,6 +66,11 @@ export class GoogleDriveStorageDriver implements StorageDriver {
     }
   }
 
+  /**
+   * Retrieve a file as a Buffer from Google Drive.
+   * @param filePath Path of the file to retrieve.
+   * @returns File content as Buffer.
+   */
   async get(filePath: string): Promise<Buffer> {
     const fileId = await this.findFileId(filePath);
     if (!fileId) throw new Error('File not found');
@@ -63,15 +81,29 @@ export class GoogleDriveStorageDriver implements StorageDriver {
     return Buffer.from(res.data as ArrayBuffer);
   }
 
+  /**
+   * Delete a file at the given path from Google Drive.
+   * @param filePath Path of the file to delete.
+   */
   async delete(filePath: string): Promise<void> {
     const fileId = await this.findFileId(filePath);
     if (fileId) await this.drive.files.delete({ fileId });
   }
 
+  /**
+   * Check if a file exists at the given path in Google Drive.
+   * @param filePath Path to check.
+   * @returns True if file exists, false otherwise.
+   */
   async exists(filePath: string): Promise<boolean> {
     return !!(await this.findFileId(filePath));
   }
 
+  /**
+   * Copy a file from src to dest in Google Drive.
+   * @param src Source path.
+   * @param dest Destination path.
+   */
   async copy(src: string, dest: string): Promise<void> {
     const fileId = await this.findFileId(src);
     if (!fileId) throw new Error('Source file not found');
@@ -84,6 +116,11 @@ export class GoogleDriveStorageDriver implements StorageDriver {
     });
   }
 
+  /**
+   * Move a file from src to dest in Google Drive.
+   * @param src Source path.
+   * @param dest Destination path.
+   */
   async move(src: string, dest: string): Promise<void> {
     const fileId = await this.findFileId(src);
     if (!fileId) throw new Error('Source file not found');
@@ -95,6 +132,10 @@ export class GoogleDriveStorageDriver implements StorageDriver {
     });
   }
 
+  /**
+   * Create a directory at the given path in Google Drive.
+   * @param dirPath Directory path.
+   */
   async makeDirectory(dirPath: string): Promise<void> {
     await this.drive.files.create({
       requestBody: {
@@ -106,6 +147,10 @@ export class GoogleDriveStorageDriver implements StorageDriver {
     });
   }
 
+  /**
+   * Delete a directory at the given path in Google Drive.
+   * @param dirPath Directory path.
+   */
   async deleteDirectory(dirPath: string): Promise<void> {
     // Google Drive does not support recursive delete natively; you must list and delete contents
     // For simplicity, just delete the folder (will move to trash)
@@ -116,6 +161,11 @@ export class GoogleDriveStorageDriver implements StorageDriver {
     }
   }
 
+  /**
+   * Get metadata for a file in Google Drive.
+   * @param filePath Path of the file.
+   * @returns File metadata.
+   */
   async getMetadata(filePath: string): Promise<FileMetadata> {
     const fileId = await this.findFileId(filePath);
     if (!fileId) throw new Error('File not found');
@@ -133,6 +183,10 @@ export class GoogleDriveStorageDriver implements StorageDriver {
     };
   }
 
+  /**
+   * List files in a directory in Google Drive.
+   * @returns Array of file names.
+   */
   async listFiles(): Promise<string[]> {
     const q = `'${this.folderId}' in parents and trashed = false`;
     const res = await this.drive.files.list({
@@ -144,12 +198,21 @@ export class GoogleDriveStorageDriver implements StorageDriver {
       .map((f) => f.name!);
   }
 
+  /**
+   * List directories in a directory in Google Drive.
+   * @returns Array of directory names.
+   */
   async listDirectories(): Promise<string[]> {
     const q = `'${this.folderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
     const res = await this.drive.files.list({ q, fields: 'files(id, name)' });
     return (res.data.files || []).map((f) => f.name!);
   }
 
+  /**
+   * Create a readable stream for a file in Google Drive.
+   * @param filePath Path of the file.
+   * @returns Readable stream.
+   */
   createReadStream(filePath: string): Readable {
     const pass = new PassThrough();
     this.get(filePath)
@@ -160,6 +223,11 @@ export class GoogleDriveStorageDriver implements StorageDriver {
     return pass;
   }
 
+  /**
+   * Prepend content to a file in Google Drive.
+   * @param filePath Path of the file.
+   * @param content Content to prepend.
+   */
   async prepend(filePath: string, content: Buffer | string): Promise<void> {
     let existing: Buffer = Buffer.from('');
     try {
@@ -171,6 +239,11 @@ export class GoogleDriveStorageDriver implements StorageDriver {
     await this.put(filePath, newContent);
   }
 
+  /**
+   * Append content to a file in Google Drive.
+   * @param filePath Path of the file.
+   * @param content Content to append.
+   */
   async append(filePath: string, content: Buffer | string): Promise<void> {
     let existing: Buffer = Buffer.from('');
     try {
@@ -182,6 +255,11 @@ export class GoogleDriveStorageDriver implements StorageDriver {
     await this.put(filePath, newContent);
   }
 
+  /**
+   * Get a public URL for a file, if supported.
+   * @param filePath Path of the file.
+   * @returns Public URL or file path.
+   */
   async url(filePath: string): Promise<string> {
     if (this.basePublicUrl) {
       return `${this.basePublicUrl}/${filePath}`;
@@ -192,6 +270,8 @@ export class GoogleDriveStorageDriver implements StorageDriver {
 
   /**
    * Temporary URLs are not supported for Google Drive driver.
+   * @param relPath File path.
+   * @throws Error always.
    */
   async getTemporaryUrl(
     relPath: string,
@@ -203,6 +283,9 @@ export class GoogleDriveStorageDriver implements StorageDriver {
 
   /**
    * Store a file with expiration metadata in a central .gdrive-expirations.json file.
+   * @param relPath Path to store the file at.
+   * @param content File content as Buffer or string.
+   * @param options Expiration and visibility options.
    */
   async putTimed(
     relPath: string,
@@ -228,6 +311,7 @@ export class GoogleDriveStorageDriver implements StorageDriver {
 
   /**
    * Delete all expired files (based on .gdrive-expirations.json). Returns number of deleted files.
+   * @returns Number of deleted files.
    */
   async deleteExpiredFiles(): Promise<number> {
     const metaPath = path.join(this.config.basePublicUrl || '', '.gdrive-expirations.json');
@@ -250,6 +334,12 @@ export class GoogleDriveStorageDriver implements StorageDriver {
     return deleted;
   }
 
+  /**
+   * Store a file stream at the given path in Google Drive.
+   * @param filePath Path to store the file at.
+   * @param stream Readable stream of file content.
+   * @param options Optional visibility settings.
+   */
   async putStream(
     filePath: string,
     stream: Readable,

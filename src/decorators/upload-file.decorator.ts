@@ -16,6 +16,11 @@ import { FileStorageService } from '../lib/file-storage.service';
 
 export const FILE_UPLOAD_OPTIONS_KEY = 'fileUploadOptions';
 
+/**
+ * Mixin to create a FileUploadInterceptor with custom options.
+ * @param options File upload interceptor options.
+ * @returns A NestJS interceptor type.
+ */
 export function FileUploadInterceptorMixin(
   options: FileUploadInterceptorOptions,
 ): Type<FileUploadInterceptor> {
@@ -29,10 +34,10 @@ export function FileUploadInterceptorMixin(
 }
 
 /**
- * @param uploadPath Optional. String or function (file, ctx) => string. If provided, will be joined with disk root for final upload path.
- * Example:
- *   uploadPath: 'avatars'
- *   uploadPath: (file, ctx) => `users/${ctx.switchToHttp().getRequest().user.id}/uploads`
+ * Decorator for uploading a single file. Applies file upload options and interceptor.
+ * @param fieldName The field name for the file input.
+ * @param options Additional upload options (except fieldName and isArray).
+ * @returns A decorator to use on controller methods.
  */
 export function UploadFile(
   fieldName: string,
@@ -50,7 +55,12 @@ export const UploadedFile = createParamDecorator((data, ctx: ExecutionContext) =
   return req.uploadedFile;
 });
 
-// Flexible rule type for file validation
+/**
+ * Flexible rule type for file validation.
+ * - 'type': Restrict allowed MIME types and extensions.
+ * - 'size': Restrict file size.
+ * - 'custom': Custom validation logic.
+ */
 export type FileValidationRule =
   | { type: 'type'; allowedMimeTypes: string[]; allowedExtensions?: string[] }
   | { type: 'size'; maxSize: number; minSize?: number; whenMimeType?: string | string[] }
