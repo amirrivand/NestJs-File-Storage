@@ -1,9 +1,9 @@
-import { promises as fs, constants, createReadStream, createWriteStream } from 'fs';
-import * as path from 'path';
-import { LocalDiskConfig, StorageDriver, FileMetadata } from '../lib/file-storage.interface';
-import { Readable } from 'stream';
 import * as crypto from 'crypto';
+import { constants, createReadStream, createWriteStream, promises as fs } from 'fs';
 import { IncomingMessage } from 'http';
+import * as path from 'path';
+import { Readable } from 'stream';
+import { FileMetadata, LocalDiskConfig, StorageDriver } from '../lib/file-storage.interface';
 
 export class LocalStorageDriver implements StorageDriver {
   private basePublicUrl: string;
@@ -22,7 +22,7 @@ export class LocalStorageDriver implements StorageDriver {
    * @returns The full path
    */
   private fullPath(relPath: string): string {
-    return path.join(this.config.root || '', relPath);
+    return relPath;
   }
 
   async listFiles(dir = '', recursive = true): Promise<string[]> {

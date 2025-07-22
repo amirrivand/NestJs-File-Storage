@@ -6,12 +6,14 @@ import {
   NestInterceptor,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { Request, Response } from 'express';
 import multer from 'multer';
 import { createReadStream, unlink } from 'node:fs';
 import os from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { Observable } from 'rxjs';
+import { StoredFile } from 'src/types/stored-file.type';
 import { FileValidationRule } from '../decorators/upload-file.decorator';
 import { FileStorageService } from '../lib/file-storage.service';
 
@@ -53,7 +55,8 @@ export class FileUploadInterceptor implements NestInterceptor {
   }
 
   async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<any>> {
-    const req: any = context.switchToHttp().getRequest();
+    const req: Request = context.switchToHttp().getRequest();
+    const res: Response = context.switchToHttp().getResponse();
     const uploadHandler = this.options.isArray
       ? this.upload.array(this.options.fieldName, this.options.maxCount)
       : this.upload.single(this.options.fieldName);
@@ -63,7 +66,7 @@ export class FileUploadInterceptor implements NestInterceptor {
     let files: Express.Multer.File[] = [];
     try {
       await new Promise<void>((resolve, reject) => {
-        uploadHandler(req, req.res, (err: any) => {
+        uploadHandler(req, res, (err: any) => {
           if (err) return reject(new BadRequestException(err.message));
           resolve();
         });
@@ -120,8 +123,10 @@ export class FileUploadInterceptor implements NestInterceptor {
       }
 
       // Store files
-      const storedFiles = [];
+      const storedFiles: StoredFile[] = [];
       for (const file of files) {
+        // 0. Determine disk root path
+        const diskRoot = (this.storage.config?.disks[this.options.disk] as any)?.root || false;
         // 1. Determine upload directory
         let uploadDir = '';
         if (this.options.uploadPath) {
@@ -142,7 +147,7 @@ export class FileUploadInterceptor implements NestInterceptor {
         }
         // 4. Build final storage path
         let candidate = filename;
-        let storagePath = join(...[uploadDir, candidate].filter(Boolean));
+        let storagePath = join(...[diskRoot, uploadDir, candidate].filter(Boolean));
         const ext = filename.includes('.') ? '.' + filename.split('.').pop() : '';
         const base = ext ? filename.slice(0, -ext.length) : filename;
 
@@ -155,7 +160,7 @@ export class FileUploadInterceptor implements NestInterceptor {
         let counter = 1;
         while (await disk.exists(storagePath)) {
           candidate = `${base}(${counter})${ext}`;
-          storagePath = join(...[uploadDir, candidate].filter(Boolean));
+          storagePath = join(...[diskRoot, uploadDir, candidate].filter(Boolean));
           counter++;
         }
         filename = candidate;
@@ -175,7 +180,18 @@ export class FileUploadInterceptor implements NestInterceptor {
         await unlinkAsync(file.path); // Clean up temp file after successful upload
         // Remove from tempFilePaths so we don't try to delete again in finally
         tempFilePaths = tempFilePaths.filter((p) => p !== file.path);
-        storedFiles.push({ ...file, storagePath });
+        storedFiles.push({
+          buffer: file.buffer,
+          fieldname: file.fieldname,
+          originalname: file.originalname,
+          encoding: file.encoding,
+          mimetype: file.mimetype,
+          disk: this.options.disk,
+          storagePath,
+          filename,
+          size: file.size,
+          stream: file.stream,
+        });
       }
 
       if (this.options.isArray) {
