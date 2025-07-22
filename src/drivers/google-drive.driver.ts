@@ -249,4 +249,25 @@ export class GoogleDriveStorageDriver implements StorageDriver {
     await fs.promises.writeFile(metaPath, JSON.stringify(meta));
     return deleted;
   }
+
+  async putStream(
+    filePath: string,
+    stream: Readable,
+    _options?: { visibility?: 'public' | 'private' },
+  ): Promise<void> {
+    const fileId = await this.findFileId(filePath);
+    const media = { body: stream };
+    if (fileId) {
+      await this.drive.files.update({ fileId, media });
+    } else {
+      await this.drive.files.create({
+        requestBody: {
+          name: path.basename(filePath),
+          parents: [this.folderId],
+        },
+        media,
+        fields: 'id',
+      });
+    }
+  }
 }

@@ -142,4 +142,22 @@ export class FileStorageService {
     // Fallback: do nothing
     return 0;
   }
+
+  async putStream(
+    path: string,
+    stream: import('stream').Readable,
+    options?: { visibility?: 'public' | 'private' },
+    disk?: string
+  ) {
+    const driver = this.disk(disk);
+    if (typeof (driver as any).putStream === 'function') {
+      return (driver as any).putStream(path, stream, options);
+    }
+    // fallback: buffer the stream
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    return driver.put(path, Buffer.concat(chunks), options);
+  }
 }

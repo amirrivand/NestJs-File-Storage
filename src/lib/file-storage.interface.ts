@@ -14,6 +14,11 @@ export interface StorageDriver {
     content: Buffer | string,
     options?: { visibility?: 'public' | 'private' },
   ): Promise<void>;
+  putStream?(
+    path: string,
+    stream: import('stream').Readable,
+    options?: { visibility?: 'public' | 'private' },
+  ): Promise<void>;
   putTimed?(
     path: string,
     content: Buffer | string,

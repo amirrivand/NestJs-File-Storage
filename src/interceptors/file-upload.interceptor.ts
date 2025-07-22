@@ -4,12 +4,18 @@ import {
   ExecutionContext,
   Injectable,
   NestInterceptor,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import multer from 'multer';
+import { createReadStream, unlink } from 'node:fs';
+import os from 'node:os';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { Observable } from 'rxjs';
 import { FileValidationRule } from '../decorators/upload-file.decorator';
 import { FileStorageService } from '../lib/file-storage.service';
+
+const unlinkAsync = promisify(unlink);
 
 export interface FileUploadInterceptorOptions {
   fieldName: string;
@@ -34,7 +40,16 @@ export class FileUploadInterceptor implements NestInterceptor {
     private readonly storage: FileStorageService,
     private readonly options: FileUploadInterceptorOptions,
   ) {
-    this.upload = multer({ storage: multer.memoryStorage() });
+    this.upload = multer({
+      storage: multer.diskStorage({
+        destination: (req, file, cb) => {
+          cb(null, os.tmpdir()); // Use system temp dir or make configurable
+        },
+        filename: (req, file, cb) => {
+          cb(null, `${Date.now()}-${file.originalname}`);
+        },
+      }),
+    });
   }
 
   async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<any>> {
@@ -112,7 +127,6 @@ export class FileUploadInterceptor implements NestInterceptor {
           uploadDir = this.options.uploadPath;
         }
       }
-      console.log('uploadDir', uploadDir);
       // 2. Generate filename
       let filename: string;
       if (this.options.filenameGenerator) {
@@ -122,24 +136,39 @@ export class FileUploadInterceptor implements NestInterceptor {
       } else {
         filename = file.originalname;
       }
-      console.log('filename', filename);
       // 4. Build final storage path
       let candidate = filename;
       let storagePath = join(...[uploadDir, candidate].filter(Boolean));
-      console.log('storagePath', storagePath);
       const ext = filename.includes('.') ? '.' + filename.split('.').pop() : '';
       const base = ext ? filename.slice(0, -ext.length) : filename;
+
+      const disk = this.storage.disk(this.options.disk);
+
+      if (!disk) {
+        throw new UnprocessableEntityException(`Disk ${this.options.disk} not found`);
+      }
+
       let counter = 1;
-      while (await this.storage.disk(this.options.disk).exists(storagePath)) {
+      while (await disk.exists(storagePath)) {
         candidate = `${base}(${counter})${ext}`;
         storagePath = join(...[uploadDir, candidate].filter(Boolean));
-        console.log('storagePath:updated', storagePath);
         counter++;
       }
       filename = candidate;
-      console.log('filename:updated', filename);
 
-      await this.storage.disk(this.options.disk).put(storagePath, file.buffer);
+      // Use stream for upload
+      const fileStream = createReadStream(file.path);
+      if (typeof disk.putStream === 'function') {
+        await disk.putStream(storagePath, fileStream);
+      } else {
+        // fallback: read file as buffer
+        const chunks: Buffer[] = [];
+        for await (const chunk of fileStream) {
+          chunks.push(chunk);
+        }
+        await disk.put(storagePath, Buffer.concat(chunks));
+      }
+      await unlinkAsync(file.path); // Clean up temp file
       storedFiles.push({ ...file, storagePath });
     }
 

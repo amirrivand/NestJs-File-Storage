@@ -240,4 +240,14 @@ export class FTPStorageDriver implements StorageDriver {
     await fs.promises.writeFile(metaPath, JSON.stringify(meta));
     return deleted;
   }
+
+  async putStream(
+    relPath: string,
+    stream: Readable,
+    _options?: { visibility?: 'public' | 'private' },
+  ): Promise<void> {
+    await this.withClient(async (client) => {
+      await client.uploadFrom(stream, relPath);
+    });
+  }
 }

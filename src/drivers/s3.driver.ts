@@ -50,6 +50,21 @@ export class S3StorageDriver implements StorageDriver {
     );
   }
 
+  async putStream(
+    path: string,
+    stream: Readable,
+    options?: { visibility?: 'public' | 'private' },
+  ): Promise<void> {
+    await this.s3Client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: path,
+        Body: stream,
+        ACL: options?.visibility === 'public' ? 'public-read' : 'private',
+      }),
+    );
+  }
+
   async setVisibility(path: string, visibility: 'public' | 'private'): Promise<void> {
     await this.s3Client.send(
       new PutObjectCommand({

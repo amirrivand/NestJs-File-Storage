@@ -1,4 +1,4 @@
-import { promises as fs, constants, createReadStream } from 'fs';
+import { promises as fs, constants, createReadStream, createWriteStream } from 'fs';
 import * as path from 'path';
 import { LocalDiskConfig, StorageDriver, FileMetadata } from '../lib/file-storage.interface';
 import { Readable } from 'stream';
@@ -69,6 +69,24 @@ export class LocalStorageDriver implements StorageDriver {
     const filePath = this.fullPath(relPath);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, content);
+    if (options?.visibility) {
+      await this.setVisibility(relPath, options.visibility);
+    }
+  }
+
+  async putStream(
+    relPath: string,
+    stream: Readable,
+    options?: { visibility?: 'public' | 'private' },
+  ): Promise<void> {
+    const filePath = this.fullPath(relPath);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await new Promise<void>((resolve, reject) => {
+      const writeStream = createWriteStream(filePath);
+      stream.pipe(writeStream);
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
+    });
     if (options?.visibility) {
       await this.setVisibility(relPath, options.visibility);
     }

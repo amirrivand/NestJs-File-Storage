@@ -199,4 +199,16 @@ export class DropboxStorageDriver implements StorageDriver {
     await fs.promises.writeFile(metaPath, JSON.stringify(meta));
     return deleted;
   }
+
+  async putStream(
+    path: string,
+    stream: Readable,
+    _options?: { visibility?: 'public' | 'private' },
+  ): Promise<void> {
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    await this.put(path, Buffer.concat(chunks));
+  }
 }
