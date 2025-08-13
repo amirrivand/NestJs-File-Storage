@@ -4,10 +4,22 @@ import { FTPStorageDriver } from '../drivers/ftp.driver';
 import { GoogleDriveStorageDriver } from '../drivers/google-drive.driver';
 import { LocalStorageDriver } from '../drivers/local.driver';
 import { S3StorageDriver } from '../drivers/s3.driver';
+import { ScopedStorageDriver } from '../drivers/scoped.driver';
 import { SFTPStorageDriver } from '../drivers/sftp.driver';
 import { StorageConfig } from '../types/storage-config.type';
-import { StorageDisk, StorageDriver } from './file-storage.interface';
-import { ScopedStorageDriver } from '../drivers/scoped.driver';
+import {
+  DiskObjectValidation,
+  DropboxDiskConfig,
+  FTPDiskConfig,
+  GoogleDriveDiskConfig,
+  LocalDiskConfig,
+  S3DiskConfig,
+  ScopedDiskConfig,
+  SFTPDiskConfig,
+  StorageDisk,
+  StorageDiskConfig,
+  StorageDriver,
+} from './file-storage.interface';
 
 const DRIVER_MAP = {
   local: LocalStorageDriver,
@@ -24,8 +36,8 @@ const DRIVER_MAP = {
  * Provides convenience methods for file operations and disk management.
  */
 @Injectable()
-export class FileStorageService {
-  public readonly config?: StorageConfig;
+export class FileStorageService<T = any> {
+  public readonly config?: StorageConfig<DiskObjectValidation<T>>;
   private disks: Map<string, StorageDisk> = new Map();
   private defaultDisk: string = 'default';
 
@@ -33,35 +45,38 @@ export class FileStorageService {
    * Create a new FileStorageService.
    * @param config Optional storage configuration.
    */
-  constructor(@Inject('STORAGE_CONFIG') config?: StorageConfig) {
+  constructor(@Inject('STORAGE_CONFIG') config?: StorageConfig<DiskObjectValidation<T>>) {
     this.config = config;
     if (config) {
-      this.defaultDisk = config.default;
+      this.defaultDisk = config.default as string;
       for (const [name, diskConfig] of Object.entries(config.disks)) {
         let driverInstance: StorageDriver;
-        switch (diskConfig.driver) {
+        if (!diskConfig) {
+          throw new Error(`Disk config not found for disk: ${name}`);
+        }
+        switch ((diskConfig as StorageDiskConfig).driver) {
           case 'local':
-            driverInstance = new LocalStorageDriver(diskConfig);
+            driverInstance = new LocalStorageDriver(diskConfig as LocalDiskConfig);
             break;
           case 's3':
-            driverInstance = new S3StorageDriver(diskConfig);
+            driverInstance = new S3StorageDriver(diskConfig as S3DiskConfig);
             break;
           case 'ftp':
-            driverInstance = new FTPStorageDriver(diskConfig);
+            driverInstance = new FTPStorageDriver(diskConfig as FTPDiskConfig);
             break;
           case 'sftp':
-            driverInstance = new SFTPStorageDriver(diskConfig);
+            driverInstance = new SFTPStorageDriver(diskConfig as SFTPDiskConfig);
             break;
           case 'dropbox':
-            driverInstance = new DropboxStorageDriver(diskConfig);
+            driverInstance = new DropboxStorageDriver(diskConfig as DropboxDiskConfig);
             break;
           case 'gdrive':
-            driverInstance = new GoogleDriveStorageDriver(diskConfig);
+            driverInstance = new GoogleDriveStorageDriver(diskConfig as GoogleDriveDiskConfig);
             break;
           case 'scoped':
             // برای scoped باید یک driver دیگر هم پاس داده شود، اینجا فرض می‌کنیم local به عنوان پیش‌فرض
             driverInstance = new ScopedStorageDriver(
-              diskConfig,
+              diskConfig as ScopedDiskConfig,
               new LocalStorageDriver({ driver: 'local', root: '' }),
             );
             break;
@@ -71,7 +86,7 @@ export class FileStorageService {
         this.disks.set(name, {
           name,
           driver: driverInstance,
-          config: diskConfig,
+          config: diskConfig as StorageDiskConfig,
         });
       }
     }
@@ -176,7 +191,12 @@ export class FileStorageService {
    * @param options Additional options (IP/device).
    * @param disk Optional disk name.
    */
-  async getTemporaryUrl(path: string, expiresIn?: number, options?: { ip?: string; deviceId?: string }, disk?: string) {
+  async getTemporaryUrl(
+    path: string,
+    expiresIn?: number,
+    options?: { ip?: string; deviceId?: string },
+    disk?: string,
+  ) {
     const driver = this.disk(disk);
     if (typeof driver.getTemporaryUrl === 'function') {
       return driver.getTemporaryUrl(path, expiresIn, options);
@@ -195,7 +215,7 @@ export class FileStorageService {
     path: string,
     content: Buffer | string,
     options: { expiresAt?: Date; ttl?: number; visibility?: 'public' | 'private' } = {},
-    disk?: string
+    disk?: string,
   ) {
     const driver = this.disk(disk);
     if (typeof driver.putTimed === 'function') {
@@ -230,7 +250,7 @@ export class FileStorageService {
     path: string,
     stream: import('stream').Readable,
     options?: { visibility?: 'public' | 'private' },
-    disk?: string
+    disk?: string,
   ) {
     const driver = this.disk(disk);
     if (typeof (driver as any).putStream === 'function') {

@@ -5,7 +5,7 @@ import { FileStorageService } from '../lib/file-storage.service';
  * Pipe for storing uploaded files to a specified disk using FileStorageService.
  */
 @Injectable()
-export class FileToDiskPipe implements PipeTransform {
+export class FileToDiskPipe<T> implements PipeTransform {
   /**
    * Create a new FileToDiskPipe.
    * @param storage The file storage service.
@@ -13,7 +13,7 @@ export class FileToDiskPipe implements PipeTransform {
    * @param options Optional visibility settings.
    */
   constructor(
-    private readonly storage: FileStorageService,
+    private readonly storage: FileStorageService<T>,
     private readonly disk: string,
     private readonly options?: { visibility?: 'public' | 'private' },
   ) {}

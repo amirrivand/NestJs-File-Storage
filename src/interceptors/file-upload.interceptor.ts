@@ -41,7 +41,7 @@ export interface FileUploadInterceptorOptions {
  * Interceptor for handling file uploads using multer and storing them via FileStorageService.
  */
 @Injectable()
-export class FileUploadInterceptor implements NestInterceptor {
+export class FileUploadInterceptor<T> implements NestInterceptor {
   private upload: ReturnType<typeof multer>;
 
   /**
@@ -50,7 +50,7 @@ export class FileUploadInterceptor implements NestInterceptor {
    * @param options File upload interceptor options.
    */
   constructor(
-    private readonly storage: FileStorageService,
+    private readonly storage: FileStorageService<T>,
     private readonly options: FileUploadInterceptorOptions,
   ) {
     this.upload = multer({
@@ -143,7 +143,8 @@ export class FileUploadInterceptor implements NestInterceptor {
       const storedFiles: StoredFile[] = [];
       for (const file of files) {
         // 0. Determine disk root path
-        const diskRoot = (this.storage.config?.disks[this.options.disk] as any)?.root || false;
+        const diskRoot =
+          (this.storage.config?.disks[this.options.disk as keyof T] as any)?.root || false;
         // 1. Determine upload directory
         let uploadDir = '';
         if (this.options.uploadPath) {

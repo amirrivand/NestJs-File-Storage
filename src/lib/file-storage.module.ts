@@ -1,18 +1,21 @@
 import { DynamicModule, Module, Provider, Type } from '@nestjs/common';
 import { createDiskProvider } from '../providers/dynamic-disk.provider';
 import { StorageConfig } from '../types/storage-config.type';
+import { DiskObjectValidation } from './file-storage.interface';
 import { FileStorageService } from './file-storage.service';
 
 /**
  * Options for asynchronously configuring the FileStorageModule.
  */
-export interface FileStorageModuleAsyncOptions {
+export interface FileStorageModuleAsyncOptions<T> {
   isGlobal?: boolean;
   imports?: any[];
   inject?: any[];
   useExisting?: Type<any>;
   useClass?: Type<any>;
-  useFactory?: (...args: any[]) => Promise<StorageConfig> | StorageConfig;
+  useFactory?: (
+    ...args: any[]
+  ) => Promise<StorageConfig<DiskObjectValidation<T>>> | StorageConfig<DiskObjectValidation<T>>;
   providers?: Provider[];
 }
 
@@ -27,19 +30,22 @@ export class FileStorageModule {
    * @param config Storage configuration and optional global flag.
    * @returns A dynamic module for NestJS.
    */
-  static forRoot({ isGlobal, ...config }: StorageConfig & { isGlobal?: boolean }): DynamicModule {
+  static forRoot<T>({
+    isGlobal,
+    ...config
+  }: StorageConfig<DiskObjectValidation<T>> & { isGlobal?: boolean }): DynamicModule {
     const diskProviders: Provider[] = Object.keys(config.disks).map((diskName) =>
-      createDiskProvider(diskName, (storage: FileStorageService) => storage.disk(diskName)),
+      createDiskProvider(diskName, (storage: FileStorageService<T>) => storage.disk(diskName)),
     );
     return {
       global: isGlobal ?? false,
       module: FileStorageModule,
       providers: [
         { provide: 'STORAGE_CONFIG', useValue: config },
-        FileStorageService,
+        FileStorageService<T>,
         ...diskProviders,
       ],
-      exports: [FileStorageService, ...diskProviders],
+      exports: [FileStorageService<T>, ...diskProviders],
     };
   }
 
@@ -48,7 +54,7 @@ export class FileStorageModule {
    * @param options Async configuration options.
    * @returns A dynamic module for NestJS.
    */
-  static forRootAsync(options: FileStorageModuleAsyncOptions): DynamicModule {
+  static forRootAsync<T>(options: FileStorageModuleAsyncOptions<T>): DynamicModule {
     const asyncProvider: Provider = options.useFactory
       ? {
           provide: 'STORAGE_CONFIG',
@@ -62,12 +68,15 @@ export class FileStorageModule {
     // Provider داینامیک دیسک‌ها بعد از resolve شدن config ساخته می‌شود
     const diskProvidersFactory: Provider = {
       provide: 'FILE_STORAGE_DISK_PROVIDERS',
-      useFactory: async (storage: FileStorageService, config: StorageConfig) => {
+      useFactory: async (
+        storage: FileStorageService<T>,
+        config: StorageConfig<DiskObjectValidation<T>>,
+      ) => {
         return Object.keys(config.disks).map((diskName) =>
-          createDiskProvider(diskName, (storage: FileStorageService) => storage.disk(diskName)),
+          createDiskProvider(diskName, (storage: FileStorageService<T>) => storage.disk(diskName)),
         );
       },
-      inject: [FileStorageService, 'STORAGE_CONFIG'],
+      inject: [FileStorageService<T>, 'STORAGE_CONFIG'],
     };
     return {
       global: options.isGlobal ?? false,
@@ -76,10 +85,10 @@ export class FileStorageModule {
       providers: [
         ...(options.providers || []),
         asyncProvider,
-        FileStorageService,
+        FileStorageService<T>,
         diskProvidersFactory,
       ],
-      exports: [FileStorageService, 'FILE_STORAGE_DISK_PROVIDERS'],
+      exports: [FileStorageService<T>, 'FILE_STORAGE_DISK_PROVIDERS'],
     };
   }
 }

@@ -254,3 +254,8 @@ export interface StorageDisk {
   driver: StorageDriver;
   config: StorageDiskConfig;
 }
+
+// This type is used to validate the object type of the disks object in the storage config
+export type DiskObjectValidation<T> = {
+  [P in keyof T]: T[P] extends StorageDiskConfig ? T[P] : never;
+};

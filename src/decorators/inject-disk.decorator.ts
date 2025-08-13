@@ -18,6 +18,6 @@ import { Inject } from '@nestjs/common';
  * private readonly fileStorageService: FileStorageService,
  * @returns The disk from the file storage service.
  */
-export function InjectDisk(diskName: string) {
+export function InjectDisk<T extends string>(diskName: T) {
   return Inject(`FILE_STORAGE_DISK_${diskName.toUpperCase()}`);
 }

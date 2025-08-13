@@ -21,12 +21,12 @@ export const FILE_UPLOAD_OPTIONS_KEY = 'fileUploadOptions';
  * @param options File upload interceptor options.
  * @returns A NestJS interceptor type.
  */
-export function FileUploadInterceptorMixin(
+export function FileUploadInterceptorMixin<T>(
   options: FileUploadInterceptorOptions,
-): Type<FileUploadInterceptor> {
+): Type<FileUploadInterceptor<T>> {
   @Injectable()
-  class MixinInterceptor extends FileUploadInterceptor {
-    constructor(storage: FileStorageService) {
+  class MixinInterceptor extends FileUploadInterceptor<T> {
+    constructor(storage: FileStorageService<T>) {
       super(storage, options);
     }
   }
@@ -39,14 +39,14 @@ export function FileUploadInterceptorMixin(
  * @param options Additional upload options (except fieldName and isArray).
  * @returns A decorator to use on controller methods.
  */
-export function UploadFile(
+export function UploadFile<T>(
   fieldName: string,
   options: Omit<FileUploadInterceptorOptions, 'fieldName' | 'isArray'>,
 ) {
   const opts = { ...options, fieldName, isArray: false };
   return applyDecorators(
     SetMetadata(FILE_UPLOAD_OPTIONS_KEY, opts),
-    UseInterceptors(FileUploadInterceptorMixin(opts)),
+    UseInterceptors(FileUploadInterceptorMixin<T>(opts)),
   );
 }
 

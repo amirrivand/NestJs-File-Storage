@@ -7,13 +7,13 @@ import { FileStorageService } from '../lib/file-storage.service';
  * @param factory Factory function to get the disk from FileStorageService.
  * @returns A provider object for NestJS DI.
  */
-export function createDiskProvider(
+export function createDiskProvider<T>(
   diskName: string,
-  factory: (storage: FileStorageService) => any,
+  factory: (storage: FileStorageService<T>) => any,
 ): Provider {
   return {
     provide: `FILE_STORAGE_DISK_${diskName.toUpperCase()}`,
     useFactory: factory,
-    inject: [FileStorageService],
+    inject: [FileStorageService<T>],
   };
 }
