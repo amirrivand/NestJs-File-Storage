@@ -25,8 +25,6 @@
 ## 📦 Installation
 
 ```sh
-npm install @amirrivand/nestjs-file-storage
-# or
 yarn add @amirrivand/nestjs-file-storage
 ```
 
@@ -72,6 +70,7 @@ yarn add @amirrivand/nestjs-file-storage
 
 - [Quick Start](#-quick-start)
 - [Configuration](#-configuration)
+- [Async Module Registration](#-async-module-registration)
 - [Usage Examples](#-usage-examples)
 - [Filename Generation](#-filename-generation)
 - [Advanced Patterns](#-advanced-patterns)
@@ -233,14 +232,14 @@ You can inject a specific disk instance directly into your providers or controll
 
 ```ts
 import { Controller } from '@nestjs/common';
-import { FileStorageService } from '@amirrivand/nestjs-file-storage';
+import { StorageDriver } from '@amirrivand/nestjs-file-storage';
 import { InjectDisk } from '@amirrivand/nestjs-file-storage';
 
 @Controller('files')
 export class FileController {
   constructor(
     @InjectDisk('local')
-    private readonly fileStorageService: FileStorageService,
+    private readonly localDisk: StorageDriver,
   ) {}
 
   // ... your endpoints using this.fileStorageService
@@ -248,7 +247,54 @@ export class FileController {
 ```
 
 - The string passed to `@InjectDisk('local')` should match the disk name defined in your `FileStorageModule` configuration.
-- This allows you to use all methods of `FileStorageService` for the specified disk.
+- The injected value is the disk's `StorageDriver` (e.g., Local, S3). Use its methods like `put`, `get`, `delete`, etc.
+ - If you register the module with `forRootAsync`, you must also list that disk in the module option `injectables` so the provider token is available (see below).
+
+---
+
+## 🔄 Async Module Registration
+
+When configuring the module asynchronously, you can expose specific disks for injection via the `injectables` option. This makes tokens like `FILE_STORAGE_DISK_LOCAL` available so `@InjectDisk('local')` works.
+
+```ts
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { FileStorageModule } from '@amirrivand/nestjs-file-storage';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    FileStorageModule.forRootAsync({
+      isGlobal: true,
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (config: ConfigService) => ({
+        default: 'local',
+        disks: {
+          local: { driver: 'local', root: config.get<string>('FS_ROOT')! },
+          s3: {
+            driver: 's3',
+            accessKeyId: config.get<string>('AWS_ACCESS_KEY_ID')!,
+            secretAccessKey: config.get<string>('AWS_SECRET_ACCESS_KEY')!,
+            region: config.get<string>('AWS_REGION')!,
+            bucket: config.get<string>('AWS_BUCKET')!,
+          },
+        },
+      }),
+      // List disks you want to inject via @InjectDisk('...')
+      injectables: ['local', 's3'],
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+Notes:
+- `injectables` should contain the exact disk keys you plan to inject with `@InjectDisk('...')`.
+- If you do not need to inject disks directly, you can omit `injectables` and just use `FileStorageService` with `storage.disk('name')`.
+
+Type-safety tip:
+- `injectables` is typed as `(keyof DiskObjectValidation<T>)[]` based on your config generic `T`, so disk names are validated at compile time when you use generics.
 
 ---
 
@@ -282,6 +328,9 @@ export class FileController {
 - SFTP
 - Dropbox
 - Google Drive
+ - Scoped
+ - ReadOnly
+ - Buffer (in-memory)
 
 ---
 
