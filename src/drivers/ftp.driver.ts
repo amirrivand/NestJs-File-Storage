@@ -1,9 +1,8 @@
 import { Client } from 'basic-ftp';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { PassThrough, Readable } from 'stream';
-import { FTPDiskConfig, StorageDriver, FileMetadata } from '../lib/file-storage.interface';
+import { FileMetadata, FTPDiskConfig, StorageDriver } from '../lib/file-storage.interface';
 
 /**
  * Storage driver for FTP operations using the basic-ftp library.
@@ -26,6 +25,13 @@ export class FTPStorageDriver implements StorageDriver {
     return posixPath;
   }
 
+  private toReadable(content: Buffer | string): Readable {
+    const stream = new PassThrough();
+    const buffer = Buffer.isBuffer(content) ? content : Buffer.from(content);
+    stream.end(buffer);
+    return stream;
+  }
+
   private async withClient<T>(fn: (client: Client) => Promise<T>): Promise<T> {
     const client = new Client();
     try {
@@ -43,16 +49,9 @@ export class FTPStorageDriver implements StorageDriver {
         await client.cd(this.config.root);
       }
       return await fn(client);
-    } catch (error) {
-      console.error(error);
-      throw error;
     } finally {
       client.close();
     }
-  }
-
-  private async getTempFilePath(): Promise<string> {
-    return path.join(os.tmpdir(), `ftp-tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   }
 
   /**
@@ -66,20 +65,17 @@ export class FTPStorageDriver implements StorageDriver {
     content: Buffer | string,
     _options?: { visibility?: 'public' | 'private' },
   ): Promise<void> {
-    const tempFile = await this.getTempFilePath();
-    await fs.promises.writeFile(tempFile, content);
-    try {
-      await this.withClient(async (client) => {
-        const remotePath = this.normalizeRemotePath(relPath);
-        const remoteDir = path.posix.dirname(remotePath);
-        if (remoteDir && remoteDir !== '.' && remoteDir !== '/') {
-          await client.ensureDir(remoteDir);
-        }
-        await client.uploadFrom(tempFile, remotePath);
-      });
-    } finally {
-      await fs.promises.unlink(tempFile).catch(() => {});
-    }
+    const putCommand = async (client: Client) => {
+      const remotePath = this.normalizeRemotePath(relPath);
+      const remoteDir = path.posix.dirname(remotePath);
+      if (remoteDir && remoteDir !== '.' && remoteDir !== '/') {
+        await client.ensureDir(remoteDir);
+      }
+      const stream = this.toReadable(content);
+      const fileName = path.posix.basename(remotePath);
+      await client.uploadFrom(stream, fileName);
+    };
+    await this.withClient(putCommand);
   }
 
   /**
@@ -88,16 +84,27 @@ export class FTPStorageDriver implements StorageDriver {
    * @returns File content as Buffer.
    */
   async get(relPath: string): Promise<Buffer> {
-    const tempFile = await this.getTempFilePath();
-    try {
-      await this.withClient(async (client) => {
-        const remotePath = this.normalizeRemotePath(relPath);
-        await client.downloadTo(tempFile, remotePath);
+    const getCommand = async (client: Client) => {
+      const remotePath = this.normalizeRemotePath(relPath);
+      const pass = new PassThrough();
+      await client.downloadTo(pass, remotePath);
+
+      // Collect the stream into a Buffer
+      const chunks: Buffer[] = [];
+      return await new Promise<Buffer>((resolve, reject) => {
+        pass.on('data', (chunk: Buffer) => {
+          chunks.push(chunk);
+        });
+        pass.on('end', () => {
+          resolve(Buffer.concat(chunks));
+        });
+        pass.on('error', (err) => {
+          reject(err);
+        });
       });
-      return await fs.promises.readFile(tempFile);
-    } finally {
-      await fs.promises.unlink(tempFile).catch(() => {});
-    }
+    };
+
+    return this.withClient(getCommand);
   }
 
   /**
@@ -106,7 +113,10 @@ export class FTPStorageDriver implements StorageDriver {
    */
   async delete(relPath: string): Promise<void> {
     const remotePath = this.normalizeRemotePath(relPath);
-    await this.withClient((client) => client.remove(remotePath));
+    const deleteCommand = async (client: Client) => {
+      await client.remove(remotePath);
+    };
+    await this.withClient(deleteCommand);
   }
 
   /**
@@ -115,7 +125,7 @@ export class FTPStorageDriver implements StorageDriver {
    * @returns True if file exists, false otherwise.
    */
   async exists(relPath: string): Promise<boolean> {
-    return this.withClient(async (client) => {
+    const existsCommand = async (client: Client) => {
       const remotePath = this.normalizeRemotePath(relPath);
       try {
         const list = await client.list(path.posix.dirname(remotePath));
@@ -123,7 +133,9 @@ export class FTPStorageDriver implements StorageDriver {
       } catch {
         return false;
       }
-    });
+    };
+
+    return this.withClient(existsCommand);
   }
 
   /**
@@ -142,15 +154,19 @@ export class FTPStorageDriver implements StorageDriver {
    * @param dest Destination path.
    */
   async move(src: string, dest: string): Promise<void> {
-    await this.withClient(async (client) => {
+    const moveCommand = async (client: Client) => {
       const srcPath = this.normalizeRemotePath(src);
       const destPath = this.normalizeRemotePath(dest);
       const destDir = path.posix.dirname(destPath);
       if (destDir && destDir !== '.' && destDir !== '/') {
+        const originalCwd = await client.pwd();
         await client.ensureDir(destDir);
+        // Ensure subsequent rename uses paths relative to original root cwd
+        await client.cd(originalCwd);
       }
       await client.rename(srcPath, destPath);
-    });
+    };
+    await this.withClient(moveCommand);
   }
 
   /**
@@ -159,7 +175,8 @@ export class FTPStorageDriver implements StorageDriver {
    */
   async makeDirectory(relPath: string): Promise<void> {
     const remotePath = this.normalizeRemotePath(relPath);
-    await this.withClient((client) => client.ensureDir(remotePath));
+    const makeDirectoryCommand = (client: Client) => client.ensureDir(remotePath);
+    await this.withClient(makeDirectoryCommand);
   }
 
   /**
@@ -168,7 +185,8 @@ export class FTPStorageDriver implements StorageDriver {
    */
   async deleteDirectory(relPath: string): Promise<void> {
     const remotePath = this.normalizeRemotePath(relPath);
-    await this.withClient((client) => client.removeDir(remotePath));
+    const deleteDirectoryCommand = (client: Client) => client.removeDir(remotePath);
+    await this.withClient(deleteDirectoryCommand);
   }
 
   /**
@@ -177,7 +195,7 @@ export class FTPStorageDriver implements StorageDriver {
    * @returns File metadata.
    */
   async getMetadata(relPath: string): Promise<FileMetadata> {
-    return this.withClient(async (client) => {
+    const getMetadataCommand = async (client: Client) => {
       const remotePath = this.normalizeRemotePath(relPath);
       const list = await client.list(path.posix.dirname(remotePath));
       const file = list.find((f) => f.name === path.posix.basename(remotePath));
@@ -187,8 +205,9 @@ export class FTPStorageDriver implements StorageDriver {
         size: file.size,
         lastModified: file.modifiedAt,
         visibility: 'public',
-      };
-    });
+      } satisfies FileMetadata;
+    };
+    return this.withClient(getMetadataCommand);
   }
 
   /**
@@ -198,7 +217,7 @@ export class FTPStorageDriver implements StorageDriver {
    * @returns Array of file paths.
    */
   async listFiles(dir = '', recursive = true): Promise<string[]> {
-    return this.withClient(async (client) => {
+    const listFilesCommand = async (client: Client) => {
       const results: string[] = [];
       async function walk(current: string) {
         const list = await client.list(current || '.');
@@ -213,7 +232,8 @@ export class FTPStorageDriver implements StorageDriver {
       }
       await walk(this.normalizeRemotePath(dir));
       return results;
-    });
+    };
+    return this.withClient(listFilesCommand);
   }
 
   /**
@@ -223,7 +243,7 @@ export class FTPStorageDriver implements StorageDriver {
    * @returns Array of directory paths.
    */
   async listDirectories(dir = '', recursive = true): Promise<string[]> {
-    return this.withClient(async (client) => {
+    const listDirectoriesCommand = async (client: Client) => {
       const results: string[] = [];
       async function walk(current: string) {
         const list = await client.list(current || '.');
@@ -237,7 +257,8 @@ export class FTPStorageDriver implements StorageDriver {
       }
       await walk(this.normalizeRemotePath(dir));
       return results;
-    });
+    };
+    return this.withClient(listDirectoriesCommand);
   }
 
   /**
@@ -247,10 +268,11 @@ export class FTPStorageDriver implements StorageDriver {
    */
   createReadStream(relPath: string): Readable {
     const pass = new PassThrough();
-    this.withClient(async (client) => {
+    const createReadStreamCommand = async (client: Client) => {
       const remotePath = this.normalizeRemotePath(relPath);
       await client.downloadTo(pass, remotePath);
-    }).catch((err) => pass.emit('error', err));
+    };
+    this.withClient(createReadStreamCommand).catch((err) => pass.emit('error', err));
     return pass;
   }
 
@@ -382,7 +404,8 @@ export class FTPStorageDriver implements StorageDriver {
       if (remoteDir && remoteDir !== '.' && remoteDir !== '/') {
         await client.ensureDir(remoteDir);
       }
-      await client.uploadFrom(stream, remotePath);
+      const fileName = path.posix.basename(remotePath);
+      await client.uploadFrom(stream, fileName);
     });
   }
 }
