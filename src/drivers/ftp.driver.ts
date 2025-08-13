@@ -29,6 +29,7 @@ export class FTPStorageDriver implements StorageDriver {
         password: this.config.password,
         port: this.config.port,
         secure: this.config.secure,
+        secureOptions: { rejectUnauthorized: false },
       });
       return await fn(client);
     } finally {
