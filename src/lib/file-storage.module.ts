@@ -17,6 +17,12 @@ export interface FileStorageModuleAsyncOptions<T> {
     ...args: any[]
   ) => Promise<StorageConfig<DiskObjectValidation<T>>> | StorageConfig<DiskObjectValidation<T>>;
   providers?: Provider[];
+  /**
+   * Names of disks to expose as injectable providers when using forRootAsync.
+   * Required for @InjectDisk('name') to work in async registration, because
+   * disk provider tokens must be declared at module definition time.
+   */
+  injectables?: (keyof DiskObjectValidation<T>)[];
 }
 
 /**
@@ -65,19 +71,14 @@ export class FileStorageModule {
           provide: 'STORAGE_CONFIG',
           useClass: options.useClass as Type<any>,
         };
-    // Provider داینامیک دیسک‌ها بعد از resolve شدن config ساخته می‌شود
-    const diskProvidersFactory: Provider = {
-      provide: 'FILE_STORAGE_DISK_PROVIDERS',
-      useFactory: async (
-        storage: FileStorageService<T>,
-        config: StorageConfig<DiskObjectValidation<T>>,
-      ) => {
-        return Object.keys(config.disks).map((diskName) =>
-          createDiskProvider(diskName, (storage: FileStorageService<T>) => storage.disk(diskName)),
-        );
-      },
-      inject: [FileStorageService<T>, 'STORAGE_CONFIG'],
-    };
+    // Build explicit per-disk providers based on the declared diskNames.
+    // In async registration we cannot compute provider tokens from the resolved
+    // config at compile time, so we rely on the caller to provide diskNames.
+    const diskProviders: Provider[] = (options.injectables || []).map((diskName) =>
+      createDiskProvider<T>(diskName as string, (storage: FileStorageService<T>) =>
+        storage.disk(diskName as string),
+      ),
+    );
     return {
       global: options.isGlobal ?? false,
       module: FileStorageModule,
@@ -86,9 +87,9 @@ export class FileStorageModule {
         ...(options.providers || []),
         asyncProvider,
         FileStorageService<T>,
-        diskProvidersFactory,
+        ...diskProviders,
       ],
-      exports: [FileStorageService<T>, 'FILE_STORAGE_DISK_PROVIDERS'],
+      exports: [FileStorageService<T>, ...diskProviders],
     };
   }
 }
