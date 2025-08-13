@@ -1,6 +1,6 @@
 {
   "name": "@amirrivand/nestjs-file-storage",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "A powerful, multi-driver file storage solution for NestJS.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
