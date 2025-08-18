@@ -16,6 +16,7 @@ export * from './drivers/readonly.driver';
 export * from './drivers/s3.driver';
 export * from './drivers/scoped.driver';
 export * from './drivers/sftp.driver';
+export * from './drivers/buffer.driver';
 // NestJS helpers
 export * from './decorators/file-response.decorator';
 export * from './decorators/inject-disk.decorator';

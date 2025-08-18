@@ -1,16 +1,9 @@
-import { StorageDriver, FileMetadata } from '../lib/file-storage.interface';
+import { StorageDriver, FileMetadata, BufferDiskConfig } from '../lib/file-storage.interface';
 import { Readable } from 'stream';
 
 interface BufferFile {
   content: Buffer;
   metadata: FileMetadata;
-}
-
-/**
- * Configuration for the in-memory buffer storage driver.
- */
-export interface BufferDiskConfig {
-  driver: 'buffer';
 }
 
 /**

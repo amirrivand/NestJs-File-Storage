@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { BufferStorageDriver } from '../drivers/buffer.driver';
 import { DropboxStorageDriver } from '../drivers/dropbox.driver';
 import { FTPStorageDriver } from '../drivers/ftp.driver';
 import { GoogleDriveStorageDriver } from '../drivers/google-drive.driver';
@@ -9,6 +10,7 @@ import { SFTPStorageDriver } from '../drivers/sftp.driver';
 import { StorageConfig } from '../types/storage-config.type';
 import {
   DiskObjectValidation,
+  BufferDiskConfig,
   DropboxDiskConfig,
   FTPDiskConfig,
   GoogleDriveDiskConfig,
@@ -22,6 +24,7 @@ import {
 } from './file-storage.interface';
 
 const DRIVER_MAP = {
+  buffer: BufferStorageDriver,
   local: LocalStorageDriver,
   s3: S3StorageDriver,
   ftp: FTPStorageDriver,
@@ -55,6 +58,9 @@ export class FileStorageService<T = any> {
           throw new Error(`Disk config not found for disk: ${name}`);
         }
         switch ((diskConfig as StorageDiskConfig).driver) {
+          case 'buffer':
+            driverInstance = new BufferStorageDriver(diskConfig as BufferDiskConfig);
+            break;
           case 'local':
             driverInstance = new LocalStorageDriver(diskConfig as LocalDiskConfig);
             break;

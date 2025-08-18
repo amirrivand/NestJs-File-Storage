@@ -1,4 +1,5 @@
-import { BufferStorageDriver, BufferDiskConfig } from './buffer.driver';
+import { BufferStorageDriver } from './buffer.driver';
+import { BufferDiskConfig } from '../lib/file-storage.interface';
 
 describe('BufferStorageDriver', () => {
   let driver: BufferStorageDriver;
