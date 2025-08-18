@@ -13,7 +13,7 @@ export type FilenameGenerator = (
  * Type for file storage configuration, including disks and default disk.
  * Supports generic disk configuration types.
  */
-export type StorageConfig<TDisks> = {
+export type StorageConfig<TDisks extends Record<string, StorageDiskConfig>> = {
   default: keyof TDisks;
   disks: TDisks;
   filenameGenerator?: FilenameGenerator;
