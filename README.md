@@ -10,15 +10,18 @@
 
 ## 🚀 Features
 
-- **Multi-driver**: Local, S3, FTP, SFTP, Dropbox, Google Drive
+- **Multi-driver**: Local, S3, FTP, SFTP, Dropbox, Google Drive, Buffer (in-memory)
 - **Unified API**: Consistent, extensible, and type-safe
 - **Advanced Operations**: Upload, download, streaming, metadata, visibility, URLs, temp URLs, prepend/append, copy/move
+- **Stream Support**: Upload files directly from streams with `putStream` method
+- **Timed/Expiring Files**: Upload files with automatic expiration using `putTimed` and `deleteExpiredFiles`
 - **Scoped & Read-Only Disks**: Restrict access or scope to subfolders
 - **NestJS-Native**: Decorators, pipes, guards, interceptors, DTOs, async module registration
 - **Internal Upload Solution**: Seamless file handling in controllers
 - **Validation**: File type, size, and multi-file validation pipes
 - **Async/Dynamic Disks**: Register disks at runtime from config/db
 - **Flexible Filename Generation**: Global and per-upload filename generator support
+- **Visibility Management**: Set and get file visibility (public/private) across drivers
 
 ---
 
@@ -73,10 +76,14 @@ yarn add @amirrivand/nestjs-file-storage
 - [Async Module Registration](#-async-module-registration)
 - [Usage Examples](#-usage-examples)
 - [Filename Generation](#-filename-generation)
+- [Stream Support](#-stream-support)
+- [Injecting a Specific Disk](#-injecting-a-specific-disk)
 - [Advanced Patterns](#-advanced-patterns)
 - [NestJS Integration](#-nestjs-integration)
 - [Drivers](#-drivers)
 - [Validation](#-validation)
+- [Temporary/Signed URLs](#-temporarysigned-urls)
+- [Timed/Expiring Uploads](#-timedexpiring-uploads)
 - [Types](#-types)
 - [License](#-license)
 
@@ -226,6 +233,49 @@ type FilenameGenerator = (file: Express.Multer.File, context: ExecutionContext) 
 
 ---
 
+## 🌊 Stream Support
+
+The library supports uploading files directly from streams using the `putStream` method. This is useful for handling large files or when you want to avoid loading the entire file into memory.
+
+### Usage
+
+```ts
+import { FileStorageService } from '@amirrivand/nestjs-file-storage';
+import { createReadStream } from 'fs';
+
+// Upload from file stream
+const stream = createReadStream('./large-file.zip');
+await fileStorageService.putStream('uploads/large-file.zip', stream, {
+  visibility: 'public',
+  ContentType: 'application/zip'
+}, 's3');
+
+// Upload from HTTP request stream
+@Post('upload-stream')
+async uploadStream(@Req() req: Request) {
+  const stream = req;
+  await fileStorageService.putStream('uploads/from-stream.txt', stream, {
+    visibility: 'private'
+  }, 'local');
+}
+```
+
+### Driver Support
+
+| Driver | Stream Support | Notes |
+|--------|----------------|-------|
+| Local | ✅ | Full support |
+| S3 | ✅ | Full support with AWS SDK |
+| FTP | ⚠️ | Limited support |
+| SFTP | ⚠️ | Limited support |
+| Dropbox | ⚠️ | Limited support |
+| Google Drive | ⚠️ | Limited support |
+| Buffer | ✅ | Full support |
+
+For drivers with limited stream support, the library automatically falls back to buffering the stream content.
+
+---
+
 ## 🧲 Injecting a Specific Disk
 
 You can inject a specific disk instance directly into your providers or controllers using the `@InjectDisk()` decorator. This is useful when you want to work with a specific disk (e.g., 'local', 's3') and need direct access to the `FileStorageService` for that disk.
@@ -311,26 +361,78 @@ Type-safety tip:
 
 ## 🛠️ NestJS Integration
 
-- **Decorators**: `@UploadFile`, `@UploadFiles`, `@FileResponse`, etc.
-- **Pipes**: `FileTypePipe`, `FileSizePipe`, `MultiFilePipe`
+- **Decorators**: `@UploadFile`, `@UploadFiles`, `@FileResponse`, `@InjectDisk`
+- **Pipes**: `FileTypePipe`, `FileSizePipe`, `MultiFilePipe`, `FileToDiskPipe`
 - **Guards**: `FilePermissionGuard`
 - **Interceptors**: `FileUploadInterceptor`, `FileStorageInterceptor`
 - **DTOs**: `FileUploadDto`, `FileDownloadDto`
 - **Async Providers**: `createDiskProvider`
 
+### FileToDiskPipe
+
+The `FileToDiskPipe` allows you to store uploaded files directly to a specific disk using the `FileStorageService`.
+
+```ts
+import { FileToDiskPipe } from '@amirrivand/nestjs-file-storage';
+
+@Post('upload-to-disk')
+async uploadFile(
+  @Body('file', new FileToDiskPipe(fileStorageService, 's3', { visibility: 'public' }))
+  storagePath: string
+) {
+  return { message: 'File uploaded', path: storagePath };
+}
+```
+
+### FileStorageInterceptor
+
+The `FileStorageInterceptor` automatically stores uploaded files and attaches the storage path to the request.
+
+```ts
+import { FileStorageInterceptor } from '@amirrivand/nestjs-file-storage';
+
+@Post('upload-with-interceptor')
+@UseInterceptors(new FileStorageInterceptor(fileStorageService, 'local'))
+async uploadWithInterceptor(@Req() req: Request) {
+  // req.file.storagePath contains the storage path
+  return { path: req.file.storagePath };
+}
+```
+
 ---
 
 ## 🌐 Drivers
 
-- Local
-- S3 (AWS, MinIO, etc.)
-- FTP
-- SFTP
-- Dropbox
-- Google Drive
- - Scoped
- - ReadOnly
- - Buffer (in-memory)
+- **Local**: File system storage with metadata support
+- **S3**: AWS S3 and S3-compatible services (MinIO, etc.) with object tagging and ACL management
+- **FTP**: Traditional FTP server support
+- **SFTP**: Secure FTP with SSH key authentication
+- **Dropbox**: Cloud storage via Dropbox API
+- **Google Drive**: Google Drive integration with service account authentication
+- **Buffer**: In-memory storage for testing and temporary files
+- **Scoped**: Restrict disk access to specific subdirectories
+- **ReadOnly**: Enforce read-only access to prevent modifications
+
+### S3 Driver Features
+
+The S3 driver includes advanced features:
+
+- **Object Tagging**: Automatic expiration tags for timed uploads
+- **ACL Management**: Set and get object visibility (public/private)
+- **Signed URLs**: Generate temporary URLs with expiration
+- **Stream Support**: Direct stream uploads without buffering
+- **Metadata**: Full file metadata including size, content type, and last modified
+- **Bulk Operations**: Efficient listing and deletion of files
+
+```ts
+// S3-specific operations
+await s3Driver.setVisibility('file.txt', 'public');
+const visibility = await s3Driver.getVisibility('file.txt');
+
+// Object tagging for expiration
+await s3Driver.putTimed('temp-file.txt', content, { ttl: 3600 });
+await s3Driver.deleteExpiredFiles(); // Removes all expired files
+```
 
 ---
 
@@ -469,14 +571,15 @@ const deletedCount = await fileStorageService.deleteExpiredFiles();
 - `visibility`: (optional) 'public' or 'private'
 
 ### Driver Support Table
-| Driver        | Expiry Metadata Location         | Auto-Delete Support |
-|--------------|----------------------------------|--------------------|
-| Local        | `.meta.json` sidecar file        | Yes                |
-| S3           | S3 object tag (`expiresAt`)      | Yes                |
-| FTP          | `.ftp-expirations.json` in root  | Yes                |
-| SFTP         | `.sftp-expirations.json` in root | Yes                |
-| Dropbox      | `.dropbox-expirations.json`      | Yes                |
-| Google Drive | `.gdrive-expirations.json`       | Yes                |
+| Driver        | Expiry Metadata Location         | Auto-Delete Support | Notes |
+|--------------|----------------------------------|--------------------|-------|
+| Local        | `.meta.json` sidecar file        | Yes                | Full metadata support |
+| S3           | S3 object tag (`expiresAt`)      | Yes                | Uses AWS object tagging |
+| Buffer       | In-memory metadata               | Yes                | Perfect for testing |
+| FTP          | `.ftp-expirations.json` in root  | Yes                | JSON metadata file |
+| SFTP         | `.sftp-expirations.json` in root | Yes                | JSON metadata file |
+| Dropbox      | `.dropbox-expirations.json`      | Yes                | JSON metadata file |
+| Google Drive | `.gdrive-expirations.json`       | Yes                | JSON metadata file |
 
 ### Example: Local
 ```ts
@@ -490,6 +593,13 @@ await fileStorageService.deleteExpiredFiles('local');
 await fileStorageService.putTimed('foo.txt', Buffer.from('data'), { expiresAt: new Date(Date.now() + 3600 * 1000) }, 's3');
 // ...
 await fileStorageService.deleteExpiredFiles('s3');
+```
+
+### Example: Buffer (Testing)
+```ts
+await fileStorageService.putTimed('foo.txt', Buffer.from('data'), { ttl: 60 }, 'buffer');
+// ...
+await fileStorageService.deleteExpiredFiles('buffer');
 ```
 
 ### Example: FTP/SFTP/Dropbox/Google Drive
