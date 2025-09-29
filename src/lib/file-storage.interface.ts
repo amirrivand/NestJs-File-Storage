@@ -9,6 +9,7 @@ export interface FileMetadata {
   mimeType?: string;
   lastModified?: Date;
   visibility?: 'public' | 'private';
+  ContentType?: string;
 }
 
 /**
@@ -24,7 +25,7 @@ export interface StorageDriver {
   put(
     path: string,
     content: Buffer | string,
-    options?: { visibility?: 'public' | 'private' },
+    options?: { visibility?: 'public' | 'private'; ContentType?: string },
   ): Promise<void>;
   /**
    * Store a file stream at the given path.
@@ -35,7 +36,7 @@ export interface StorageDriver {
   putStream?(
     path: string,
     stream: import('stream').Readable,
-    options?: { visibility?: 'public' | 'private' },
+    options?: { visibility?: 'public' | 'private'; ContentType?: string },
   ): Promise<void>;
   /**
    * Store a file with an expiration time.

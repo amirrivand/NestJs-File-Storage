@@ -120,7 +120,7 @@ export class FileStorageService<T = any> {
   async put(
     path: string,
     content: Buffer | string,
-    options?: { visibility?: 'public' | 'private' },
+    options?: { visibility?: 'public' | 'private'; ContentType?: string },
   ) {
     return this.disk().put(path, content, options);
   }
@@ -255,7 +255,7 @@ export class FileStorageService<T = any> {
   async putStream(
     path: string,
     stream: import('stream').Readable,
-    options?: { visibility?: 'public' | 'private' },
+    options?: { visibility?: 'public' | 'private'; ContentType?: string },
     disk?: string,
   ) {
     const driver = this.disk(disk);

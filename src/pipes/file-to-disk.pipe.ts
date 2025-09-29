@@ -15,7 +15,7 @@ export class FileToDiskPipe<T> implements PipeTransform {
   constructor(
     private readonly storage: FileStorageService<T>,
     private readonly disk: string,
-    private readonly options?: { visibility?: 'public' | 'private' },
+    private readonly options?: { visibility?: 'public' | 'private'; ContentType?: string },
   ) {}
 
   /**

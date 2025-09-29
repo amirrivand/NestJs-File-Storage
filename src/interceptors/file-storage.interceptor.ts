@@ -17,7 +17,7 @@ export class FileStorageInterceptor<T> implements NestInterceptor {
   constructor(
     private readonly storage: FileStorageService<T>,
     private readonly disk: string,
-    private readonly options?: { visibility?: 'public' | 'private' },
+    private readonly options?: { visibility?: 'public' | 'private'; ContentType?: string },
   ) {}
 
   /**
