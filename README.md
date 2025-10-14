@@ -28,7 +28,7 @@
 ## 📦 Installation
 
 ```sh
-yarn add @amirrivand/nestjs-file-storage
+pnpm add @amirrivand/nestjs-file-storage
 ```
 
 ---
@@ -149,14 +149,16 @@ FileStorageModule.forRoot({
 
 ```ts
 import { Controller, Post } from '@nestjs/common';
-import { UploadFile, UploadedFile, FileTypePipe, StoredFile } from '@amirrivand/nestjs-file-storage';
+import { UploadFile, UploadedFile, StoredFile } from '@amirrivand/nestjs-file-storage';
 
 @Controller('files')
 export class FileController {
   @Post('upload')
   @UploadFile('file', {
     disk: 'local',
-    validators: [new FileTypePipe({ allowedMimeTypes: ['image/png'] })],
+    rules: [
+      { type: 'type', allowedMimeTypes: ['image/png'], allowedExtensions: ['png'] },
+    ],
   })
   async upload(@UploadedFile() file: StoredFile) {
     // file.storagePath, file.mimetype, file.size, etc.
@@ -168,10 +170,13 @@ export class FileController {
 ### Multiple File Upload
 
 ```ts
-import { UploadFiles, UploadedFiles, FileSizePipe, StoredFile } from '@amirrivand/nestjs-file-storage';
+import { UploadFiles, UploadedFiles, StoredFile } from '@amirrivand/nestjs-file-storage';
 
 @Post('multi-upload')
-@UploadFiles('files', { disk: 's3', validators: [new FileSizePipe({ maxSize: 5 * 1024 * 1024 })] })
+@UploadFiles('files', {
+  disk: 's3',
+  rules: [{ type: 'size', maxSize: 5 * 1024 * 1024 }],
+})
 async uploadMany(@UploadedFiles() files: StoredFile[]) {
   // files is an array of StoredFile
   return files;
@@ -292,7 +297,7 @@ export class FileController {
     private readonly localDisk: StorageDriver,
   ) {}
 
-  // ... your endpoints using this.fileStorageService
+  // ... use this.localDisk.put/get/etc
 }
 ```
 
@@ -340,11 +345,11 @@ export class AppModule {}
 ```
 
 Notes:
-- `injectables` should contain the exact disk keys you plan to inject with `@InjectDisk('...')`.
-- If you do not need to inject disks directly, you can omit `injectables` and just use `FileStorageService` with `storage.disk('name')`.
+- `injectables` should list disk keys you plan to inject with `@InjectDisk('...')`.
+- If you don't inject disks, you can omit `injectables` and use `FileStorageService` with `storage.disk('name')`.
 
 Type-safety tip:
-- `injectables` is typed as `(keyof DiskObjectValidation<T>)[]` based on your config generic `T`, so disk names are validated at compile time when you use generics.
+- `injectables` is typed from your generic config so disk names are checked at compile time.
 
 ---
 
@@ -398,6 +403,26 @@ async uploadWithInterceptor(@Req() req: Request) {
   return { path: req.file.storagePath };
 }
 ```
+
+### Upload options
+
+```ts
+type FileUploadInterceptorOptions = {
+  fieldName: string; // provided by decorator
+  disk: string; // required
+  isArray?: boolean; // inferred by decorator
+  maxCount?: number; // for arrays
+  rules?: FileValidationRule[]; // validation rules
+  filenameGenerator?: (file: Express.Multer.File, ctx: ExecutionContext) => Promise<string> | string; // per-upload
+  uploadPath?: string | ((file: Express.Multer.File, ctx: ExecutionContext) => string | Promise<string>);
+  visibility?: 'public' | 'private';
+}
+```
+
+- `filenameGenerator`: per-upload override; falls back to global config.
+- `uploadPath`: string or function to compute destination subdirectory.
+- `visibility`: persisted if driver supports it.
+- `maxCount`: cap number of files accepted for arrays.
 
 ---
 

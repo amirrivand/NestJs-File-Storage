@@ -35,6 +35,7 @@ export interface FileUploadInterceptorOptions {
   uploadPath?:
     | string
     | ((file: Express.Multer.File, context: ExecutionContext) => string | Promise<string>);
+  visibility?: 'public' | 'private';
 }
 
 /**
@@ -186,14 +187,20 @@ export class FileUploadInterceptor<T> implements NestInterceptor {
         // Use stream for upload
         const fileStream = createReadStream(file.path);
         if (typeof disk.putStream === 'function') {
-          await disk.putStream(storagePath, fileStream);
+          await disk.putStream(storagePath, fileStream, {
+            ContentType: file.mimetype,
+            visibility: this.options.visibility,
+          });
         } else {
           // fallback: read file as buffer
           const chunks: Buffer[] = [];
           for await (const chunk of fileStream) {
             chunks.push(chunk);
           }
-          await disk.put(storagePath, Buffer.concat(chunks));
+          await disk.put(storagePath, Buffer.concat(chunks), {
+            ContentType: file.mimetype,
+            visibility: this.options.visibility,
+          });
         }
         await unlinkAsync(file.path); // Clean up temp file after successful upload
         // Remove from tempFilePaths so we don't try to delete again in finally

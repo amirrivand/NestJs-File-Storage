@@ -15,6 +15,6 @@ export type FilenameGenerator = (
  */
 export type StorageConfig<TDisks extends Record<string, StorageDiskConfig>> = {
   default: keyof TDisks;
-  disks: TDisks;
+  disks: Record<keyof TDisks, StorageDiskConfig>;
   filenameGenerator?: FilenameGenerator;
 };

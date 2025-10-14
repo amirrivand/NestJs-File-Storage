@@ -9,8 +9,8 @@ import { ScopedStorageDriver } from '../drivers/scoped.driver';
 import { SFTPStorageDriver } from '../drivers/sftp.driver';
 import { StorageConfig } from '../types/storage-config.type';
 import {
-  DiskObjectValidation,
   BufferDiskConfig,
+  DiskObjectValidation,
   DropboxDiskConfig,
   FTPDiskConfig,
   GoogleDriveDiskConfig,
@@ -22,17 +22,6 @@ import {
   StorageDiskConfig,
   StorageDriver,
 } from './file-storage.interface';
-
-const DRIVER_MAP = {
-  buffer: BufferStorageDriver,
-  local: LocalStorageDriver,
-  s3: S3StorageDriver,
-  ftp: FTPStorageDriver,
-  sftp: SFTPStorageDriver,
-  dropbox: DropboxStorageDriver,
-  gdrive: GoogleDriveStorageDriver,
-  scoped: ScopedStorageDriver,
-};
 
 /**
  * Service for managing file storage across multiple disks and drivers.

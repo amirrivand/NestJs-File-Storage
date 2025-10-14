@@ -1,28 +1,28 @@
 import { DynamicModule, Module, Provider, Type } from '@nestjs/common';
 import { createDiskProvider } from '../providers/dynamic-disk.provider';
 import { StorageConfig } from '../types/storage-config.type';
-import { DiskObjectValidation } from './file-storage.interface';
+import { DiskObjectValidation, StorageDiskConfig } from './file-storage.interface';
 import { FileStorageService } from './file-storage.service';
 
 /**
  * Options for asynchronously configuring the FileStorageModule.
  */
-export interface FileStorageModuleAsyncOptions<T> {
+export interface FileStorageModuleAsyncOptions<
+  T extends Record<string, StorageDiskConfig> = Record<string, StorageDiskConfig>,
+> {
   isGlobal?: boolean;
   imports?: any[];
   inject?: any[];
   useExisting?: Type<any>;
   useClass?: Type<any>;
-  useFactory?: (
-    ...args: any[]
-  ) => Promise<StorageConfig<DiskObjectValidation<T>>> | StorageConfig<DiskObjectValidation<T>>;
+  useFactory?: (...args: any[]) => Promise<StorageConfig<T>> | StorageConfig<T>;
   providers?: Provider[];
   /**
    * Names of disks to expose as injectable providers when using forRootAsync.
    * Required for @InjectDisk('name') to work in async registration, because
    * disk provider tokens must be declared at module definition time.
    */
-  injectables?: (keyof DiskObjectValidation<T>)[];
+  injectables?: (keyof T)[];
 }
 
 /**
@@ -36,10 +36,10 @@ export class FileStorageModule {
    * @param config Storage configuration and optional global flag.
    * @returns A dynamic module for NestJS.
    */
-  static forRoot<T>({
+  static forRoot<T extends Record<string, StorageDiskConfig> = Record<string, StorageDiskConfig>>({
     isGlobal,
     ...config
-  }: StorageConfig<DiskObjectValidation<T>> & { isGlobal?: boolean }): DynamicModule {
+  }: StorageConfig<T> & { isGlobal?: boolean }): DynamicModule {
     const diskProviders: Provider[] = Object.keys(config.disks).map((diskName) =>
       createDiskProvider(diskName, (storage: FileStorageService<T>) => storage.disk(diskName)),
     );
@@ -60,7 +60,9 @@ export class FileStorageModule {
    * @param options Async configuration options.
    * @returns A dynamic module for NestJS.
    */
-  static forRootAsync<T>(options: FileStorageModuleAsyncOptions<T>): DynamicModule {
+  static forRootAsync<
+    T extends Record<string, StorageDiskConfig> = Record<string, StorageDiskConfig>,
+  >(options: FileStorageModuleAsyncOptions<T>): DynamicModule {
     const asyncProvider: Provider = options.useFactory
       ? {
           provide: 'STORAGE_CONFIG',
