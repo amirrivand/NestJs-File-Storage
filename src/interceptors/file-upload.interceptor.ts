@@ -100,7 +100,7 @@ export class FileUploadInterceptor<T> implements NestInterceptor {
         files = [req.file];
       }
       if (!files || files.length === 0) {
-        throw new BadRequestException('No file uploaded');
+        return next.handle();
       }
       tempFilePaths = files.map((f) => f.path);
 
